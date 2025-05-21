@@ -14,7 +14,11 @@ export const scrapeSite = async (url: string, app_id?: string) => {
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     
-    const response = await fetch(`https://opengraph.io/api/1.1/scrape/${encodeURIComponent(url)}?accept_lang=auto&app_id=${actualAppId}`)
+    const response = await fetch(`https://opengraph.io/api/1.1/scrape/${encodeURIComponent(url)}?accept_lang=auto&app_id=${actualAppId}`, {
+        headers: {
+            'Referrer': 'mcp'
+        }
+    })
     const data = await response.text()
     return data
 }
@@ -30,7 +34,11 @@ export const getScreenshotUrl = async (url: string, app_id?: string): Promise<st
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     
-    const response = await fetch(`https://opengraph.io/api/1.1/screenshot/${encodeURIComponent(url)}?accept_lang=auto&quality=80&dimensions=md&full_page=true&app_id=${actualAppId}`)
+    const response = await fetch(`https://opengraph.io/api/1.1/screenshot/${encodeURIComponent(url)}?accept_lang=auto&quality=80&dimensions=md&full_page=true&app_id=${actualAppId}`, {
+        headers: {
+            'Referrer': 'mcp'
+        }
+    })
 
     const data = await response.json();
 
@@ -50,7 +58,11 @@ export const getSiteOgData = async (url: string, app_id?: string) => {
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     
-    const response = await fetch(`https://opengraph.io/api/1.1/site/${encodeURIComponent(url)}?accept_lang=auto&app_id=${actualAppId}`)
+    const response = await fetch(`https://opengraph.io/api/1.1/site/${encodeURIComponent(url)}?accept_lang=auto&app_id=${actualAppId}`, {
+        headers: {
+            'Referrer': 'mcp'
+        }
+    })
     const data = await response.json() as { hybridGraph: any, openGraph: any, htmlInferred: any }
     const { hybridGraph, openGraph, htmlInferred } = data;
     return { hybridGraph, openGraph, htmlInferred }
