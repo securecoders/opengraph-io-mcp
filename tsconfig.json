@@ -1,0 +1,32 @@
+{
+  
+  "compilerOptions": {
+    "target": "ES2020",                     // Reasonable async/await and language support
+    "module": "NodeNext",                   // Changed from CommonJS to NodeNext for ESM
+    "lib": ["ES2020"],                      // Include modern JS features
+    "outDir": "./dist",                     // Output directory for compiled files
+    "rootDir": "./src",                     // Source files location
+    "strict": true,                         // Enable all strict type-checking options
+    "esModuleInterop": true,                // Enable default imports for CommonJS
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,                   // Speed up build, safe for most use cases
+    "resolveJsonModule": true,              // Allow importing JSON files
+    "moduleResolution": "NodeNext",         // Changed from node to NodeNext for ESM
+    "allowSyntheticDefaultImports": true,   // For interop with non-TS libraries
+    "noImplicitAny": true,                  // Catch unsafe typing
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "sourceMap": true,
+    "baseUrl": ".",                         // Added base URL for path aliases
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+} 

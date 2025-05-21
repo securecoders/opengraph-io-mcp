@@ -1,0 +1,48 @@
+{
+  "name": "opengraph-io-mcp",
+  "version": "1.0.3",
+  "main": "dist/server.js",
+  "bin": {
+    "opengraph-io-mcp": "dist/server-stdio.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "tsc-alias",
+    "start": "node dist/server.js",
+    "start:stdio": "node dist/server-stdio.js",
+    "dev": "ts-node-dev -r tsconfig-paths/register src/server.ts",
+    "dev:stdio": "ts-node-dev -r tsconfig-paths/register src/server-stdio.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "securecoders",
+  "license": "ISC",
+  "description": "MCP tool for opengraph.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/securecoders/og-mcp"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@langchain/openai": "^0.5.6",
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "langchain": "^0.3.23",
+    "module-alias": "^2.2.3",
+    "node-fetch": "^2.7.0",
+    "ts-node": "^10.9.2",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.14.1",
+    "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3"
+  }
+}
