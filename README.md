@@ -5,6 +5,13 @@ og‑mcp is a Model‑Context‑Protocol (MCP) server that makes every OpenGraph
 
 Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract article text, or capture screenshots, you can now give the same capabilities to your autonomous agents without exposing raw API keys.
 
+## Global Installation
+
+You can install this package globally via npm:
+
+```
+npm install -g opengraph-io-mcp
+```
 
 ## Quick Install
 
@@ -26,20 +33,7 @@ Supported clients: `cursor`, `claude-desktop`, `windsurf`, `vscode`, `zed`, `jet
 
 For Claude Desktop users, you can also download the `.mcpb` extension for one-click installation from the [Releases page](https://github.com/securecoders/og-mcp/releases).
 
-## Global Installation
 
-You can install this package globally via npm:
-
-```
-npm install -g opengraph-io-mcp
-```
-
-After installation, you can use it from anywhere:
-```
-opengraph-io-mcp
-```
-
-This will start the server with stdio transport, which can be configured in MCP applications.
 
 ## Client Configuration
 
