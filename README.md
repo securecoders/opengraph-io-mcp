@@ -21,10 +21,10 @@ The easiest way to configure OpenGraph MCP for any supported client:
 
 ```bash
 # Interactive mode - guides you through setup
-npx opengraph-io-mcp-install
+npx opengraph-io-mcp
 
 # Direct mode - specify client and app ID
-npx opengraph-io-mcp-install --client cursor --app-id YOUR_APP_ID
+npx opengraph-io-mcp --client cursor --app-id YOUR_APP_ID
 ```
 
 Supported clients: `cursor`, `claude-desktop`, `windsurf`, `vscode`, `zed`, `jetbrains`
