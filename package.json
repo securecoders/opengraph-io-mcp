@@ -22,7 +22,7 @@
   "description": "MCP tool for opengraph.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/securecoders/og-mcp"
+    "url": "https://github.com/securecoders/opengraph-io-mcp"
   },
   "files": [
     "dist"
