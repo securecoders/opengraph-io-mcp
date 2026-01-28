@@ -20,6 +20,13 @@ import tools, { ToolNames } from "@/tools";
 import GetOgDataTool from "@/tools/get-og-data";
 import GetOgScrapeDataTool from "@/tools/get-og-scrape-data";
 import GetOgScreenshotTool from "@/tools/get-og-screenshot";
+import GetOgQueryTool from "@/tools/get-og-query";
+import GetOgExtractTool from "@/tools/get-og-extract";
+// Image generation tools
+import GenerateImageTool from "@/tools/generate-image";
+import IterateImageTool from "@/tools/iterate-image";
+import InspectImageSessionTool from "@/tools/inspect-image-session";
+import ExportImageAssetTool from "@/tools/export-image-asset";
 import { getAppId } from "@/utils/sessionIdToAppId";
 
 /* Input schemas for tools implemented in this server */
@@ -377,6 +384,43 @@ export const createServer = () => {
                 const og_screenshot_tool = new GetOgScreenshotTool(appId);
                 validatedArgs = og_screenshot_tool.inputSchema.parse(args);
                 return og_screenshot_tool.execute(validatedArgs);
+
+            case ToolNames.GET_OG_QUERY:
+                if (isSSETransport && !appId) {
+                    throw new Error("Could not find App ID for session.");
+                }
+                const og_query_tool = new GetOgQueryTool(appId);
+                validatedArgs = og_query_tool.inputSchema.parse(args);
+                return og_query_tool.execute(validatedArgs);
+
+            case ToolNames.GET_OG_EXTRACT:
+                if (isSSETransport && !appId) {
+                    throw new Error("Could not find App ID for session.");
+                }
+                const og_extract_tool = new GetOgExtractTool(appId);
+                validatedArgs = og_extract_tool.inputSchema.parse(args);
+                return og_extract_tool.execute(validatedArgs);
+
+            // Image generation tools (use OG_BASE_URL, no appId required in switch)
+            case ToolNames.GENERATE_IMAGE:
+                const generate_image_tool = new GenerateImageTool();
+                validatedArgs = generate_image_tool.inputSchema.parse(args);
+                return generate_image_tool.execute(validatedArgs);
+
+            case ToolNames.ITERATE_IMAGE:
+                const iterate_image_tool = new IterateImageTool();
+                validatedArgs = iterate_image_tool.inputSchema.parse(args);
+                return iterate_image_tool.execute(validatedArgs);
+
+            case ToolNames.INSPECT_IMAGE_SESSION:
+                const inspect_session_tool = new InspectImageSessionTool();
+                validatedArgs = inspect_session_tool.inputSchema.parse(args);
+                return inspect_session_tool.execute(validatedArgs);
+
+            case ToolNames.EXPORT_IMAGE_ASSET:
+                const export_asset_tool = new ExportImageAssetTool();
+                validatedArgs = export_asset_tool.inputSchema.parse(args);
+                return export_asset_tool.execute(validatedArgs);
 
             default:
                 throw new Error(`Unknown tool: ${name}`);

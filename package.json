@@ -1,9 +1,10 @@
 {
   "name": "opengraph-io-mcp",
-  "version": "1.0.3",
+  "version": "1.0.7",
   "main": "dist/server.js",
   "bin": {
-    "opengraph-io-mcp": "dist/server-stdio.js"
+    "opengraph-io-mcp": "dist/server-stdio.js",
+    "opengraph-io-mcp-install": "dist/installer.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,7 +13,8 @@
     "start:stdio": "node dist/server-stdio.js",
     "dev": "ts-node-dev -r tsconfig-paths/register src/server.ts",
     "dev:stdio": "ts-node-dev -r tsconfig-paths/register src/server-stdio.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:mcpb": "node scripts/build-mcpb.js"
   },
   "keywords": [],
   "author": "securecoders",

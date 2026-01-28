@@ -1,0 +1,49 @@
+{
+  "name": "OpenGraph MCP",
+  "version": "1.0.6",
+  "description": "Access OpenGraph.io APIs from Claude - extract metadata, scrape content, capture screenshots, and query sites with AI.",
+  "author": "SecureCoders",
+  "homepage": "https://github.com/securecoders/og-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/securecoders/og-mcp"
+  },
+  "license": "ISC",
+  "mcp": {
+    "command": "node",
+    "args": ["server/server-stdio.js"],
+    "env": {}
+  },
+  "inputs": [
+    {
+      "id": "APP_ID",
+      "name": "OpenGraph App ID",
+      "description": "Your OpenGraph.io API App ID. Get one at https://www.opengraph.io/",
+      "type": "string",
+      "required": true,
+      "secret": true
+    }
+  ],
+  "tools": [
+    {
+      "name": "getOgData",
+      "description": "Extract Open Graph metadata from a URL"
+    },
+    {
+      "name": "getOgScrapeData",
+      "description": "Scrape raw HTML/data from a URL"
+    },
+    {
+      "name": "getOgScreenshot",
+      "description": "Capture a screenshot of a webpage"
+    },
+    {
+      "name": "getOgQuery",
+      "description": "Query a site with a custom question using AI"
+    },
+    {
+      "name": "getOgExtract",
+      "description": "Extract specific HTML elements from a webpage"
+    }
+  ]
+}

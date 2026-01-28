@@ -35,7 +35,7 @@ const { server, cleanup } = createServer();
 
 // Main function to run the server
 async function run() {
-  console.log("Starting og-mcp server with stdio transport...");
+  // console.log("Starting og-mcp server with stdio transport...");
   
   // Create and connect the stdio transport
   const transport = new StdioServerTransport();
@@ -43,7 +43,7 @@ async function run() {
   
   // Handle server close
   server.onclose = async () => {
-    console.log("Server closing...");
+    // console.log("Server closing...");
     await cleanup();
     await server.close();
   };

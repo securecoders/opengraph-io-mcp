@@ -1,5 +1,6 @@
 # OpenGraph MCP Server (og-mcp)
 
+
 og‑mcp is a Model‑Context‑Protocol (MCP) server that makes every OpenGraph.io ( https://opengraph.io ) API endpoint available to AI agents (e.g. Anthropic Claude, Cursor, LangGraph) through the standard MCP interface.
 
 Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract article text, or capture screenshots, you can now give the same capabilities to your autonomous agents without exposing raw API keys.
@@ -13,20 +14,13 @@ Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract arti
 | **Get OG Data** | `/api/1.1/site/<URL>` | Extracts Open Graph data from a URL | [OpenGraph.io Docs](https://www.opengraph.io/documentation#get-open-graph) |
 | **Get OG Scrape Data** | `/api/1.1/scrape/<URL>` | Scrapes data from a URL using OpenGraph's scrape endpoint | [OpenGraph.io Docs](https://www.opengraph.io/documentation#scrape-site) |
 | **Get OG Screenshot** | `/api/1.1/screenshot/<URL>` | Gets a screenshot of a webpage using OpenGraph's screenshot endpoint | [OpenGraph.io Docs](https://www.opengraph.io/documentation#screenshot-site) |
+| **Get OG Query** | `/api/1.1/query/<URL>` | Query a site with a custom question and optional response structure | [OpenGraph.io Docs](https://www.opengraph.io/documentation#query-site) |
+| **Get OG Extract** | `/api/1.1/extract/<URL>` | Extract specific HTML elements (h1, p, etc.) from a webpage | [OpenGraph.io Docs](https://www.opengraph.io/documentation#extract-site) |
 
 ## How it works
 
-```
-┌─────────────┐          MCP (JSON‑RPC)           ┌──────────────┐
-│  AI Client  │ ───────────────────────────────▶ │   og‑mcp     │
-└─────────────┘                                  │  (this repo) │
-        ▲                                        └──────┬───────┘
-        │                                               │ REST
-        │                                               ▼
-        │                                    ┌────────────────────┐
-        └─────────────────────────────────── │  api.opengraph.io  │
-                                             └────────────────────┘
-```
+![og-mcp Architecture Diagram](how-it-works.png)
+*<sup>Diagram generated with [og-mcp's image generation tools](https://github.com/AcidOP/og-image-agent)</sup>*
 
 The og-mcp server acts as a bridge between AI clients (like Claude or other LLMs) and the OpenGraph.io API:
 
@@ -103,6 +97,26 @@ This method runs a web server that can be accessed over HTTP and uses SSE for st
 npm start
 ```
 
+## Quick Install
+
+### CLI Installer (Recommended)
+
+The easiest way to configure OpenGraph MCP for any supported client:
+
+```bash
+# Interactive mode - guides you through setup
+npx opengraph-io-mcp-install
+
+# Direct mode - specify client and app ID
+npx opengraph-io-mcp-install --client cursor --app-id YOUR_APP_ID
+```
+
+Supported clients: `cursor`, `claude-desktop`, `windsurf`, `vscode`, `zed`, `jetbrains`
+
+### Claude Desktop Extension
+
+For Claude Desktop users, you can also download the `.mcpb` extension for one-click installation from the [Releases page](https://github.com/securecoders/og-mcp/releases).
+
 ## Global Installation
 
 You can install this package globally via npm:
@@ -118,141 +132,156 @@ opengraph-io-mcp
 
 This will start the server with stdio transport, which can be configured in MCP applications.
 
-## Integrating with Cursor/Claude
+## Client Configuration
 
-### Prerequisites
+All configurations below use stdio transport (recommended). Replace `YOUR_OPENGRAPH_APP_ID` with your [OpenGraph.io App ID](https://www.opengraph.io/).
 
-- Have Cursor installed on your machine
-- Ensure this MCP server is running locally or deployed to a publicly accessible endpoint
+### Claude Desktop
 
-### Integration Steps
-
-#### Running with stdio transport in Cursor (Recommended)
-
-If you've installed the package globally, you can use it in Cursor like this:
+Config location:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
-    "mcpServers": {
-        "og-mcp": {
-            "command": "opengraph-io-mcp"
-        }
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      }
     }
+  }
 }
 ```
 
-For passing the OpenGraph API key directly in the configuration, you have two options:
+### Claude Code
 
-As command-line arguments:
+One-command installation:
+
+```bash
+# macOS/Linux
+claude mcp add --transport stdio --env APP_ID=YOUR_OPENGRAPH_APP_ID opengraph -- npx -y opengraph-io-mcp
+
+# Windows (requires cmd /c wrapper)
+claude mcp add --transport stdio --env APP_ID=YOUR_OPENGRAPH_APP_ID opengraph -- cmd /c npx -y opengraph-io-mcp
+```
+
+### Cursor
+
+Config location: `~/.cursor/mcp.json`
 
 ```json
 {
-    "mcpServers": {
-        "og-mcp": {
-            "command": "opengraph-io-mcp",
-            "args": ["--app-id", "YOUR_APP_ID"]
-        }
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      }
     }
+  }
 }
 ```
 
-Or as an environment variable (recommended):
+### VS Code
+
+Config location: `.vscode/mcp.json` (in your project directory)
+
+VS Code supports input prompts for secure credential handling:
 
 ```json
 {
-    "mcpServers": {
-        "og-mcp": {
-            "command": "opengraph-io-mcp",
-            "env": {
-                "APP_ID": "YOUR_APP_ID"
-            }
-        }
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "opengraph-app-id",
+      "description": "OpenGraph App ID",
+      "password": true
     }
+  ],
+  "servers": {
+    "opengraph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "${input:opengraph-app-id}"
+      }
+    }
+  }
 }
 ```
 
-You can also use npx to run
+### Windsurf
+
+Config location: `~/.codeium/windsurf/mcp_config.json`
 
 ```json
 {
-    "mcpServers": {
-        "og-mcp": {
-            "command": "npx",
-            "args": ["opengraph-io-mcp"],
-            "env": {
-                "APP_ID": "YOUR_APP_ID"
-            }
-        }
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      }
     }
+  }
 }
 ```
 
-#### Using HTTP/SSE Transport
+### JetBrains AI Assistant
 
-Start the MCP server:
+Add to your JetBrains AI Assistant MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      }
+    }
+  }
+}
 ```
+
+### Zed
+
+Config location: `~/.config/zed/settings.json`
+
+Note: Zed uses `context_servers` instead of `mcpServers`:
+
+```json
+{
+  "context_servers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": {
+        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      }
+    }
+  }
+}
+```
+
+### HTTP/SSE Transport (Alternative)
+
+If you prefer running a persistent server instead of stdio:
+
+```bash
 npm start
 ```
 
-Add the following to your Cursor mcp.json:
-   
-```json
-{
-    "mcpServers": {
-        "og-mcp": {
-            "url": "http://localhost:3010/sse?app_id={YOUR_APP_ID}"
-        }
-    }
-}
+Then configure your client to connect to:
 ```
-
-### Running on Windsurf
-
-#### Using stdio transport (Recommended)
-
-Add this to your `./codeium/windsurf/model_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "og-mcp": {
-      "command": "opengraph-io-mcp",
-      "env": {
-        "APP_ID": "YOUR_APP_ID"
-      }
-    }
-  }
-}
-```
-
-Using npx:
-
-```json
-{
-  "mcpServers": {
-    "og-mcp": {
-      "command": "npx",
-      "args": ["opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_APP_ID"
-      }
-    }
-  }
-}
-```
-
-#### Using HTTP/SSE Transport
-
-Add this to your `./codeium/windsurf/model_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "og-mcp": {
-      "serverUrl": "http://localhost:3010/sse?app_id=YOUR_APP_ID"
-    }
-  }
-}
+http://localhost:3010/sse?app_id=YOUR_OPENGRAPH_APP_ID
 ```
 
 ## Troubleshooting
@@ -260,3 +289,12 @@ Add this to your `./codeium/windsurf/model_config.json`:
 - If tools aren't showing up, check that the server is running and the URL is correctly configured in Cursor
 - Check the server logs for any connection or authorization issues
 - Verify that Claude has been instructed to use the specific tools by name 
+
+
+
+
+<!-- <p align="center">
+  <img src="bouvier-mascot.png" alt="Bouvier des Flandres using OG MCP" width="400">
+  <br>
+  <em>Meet our mascot: a Bouvier des Flandres hard at work generating images with og-mcp</em>
+</p> -->

@@ -13,7 +13,7 @@ const { server, cleanup } = createServer();
 let transport: SSEServerTransport;
 
 app.get("/sse", async (_, res) => {
-  console.log("Received connection");
+  // console.log("Received connection");
 
   const appIdFromQuery = _.query['app_id'] as string;
 
@@ -22,7 +22,7 @@ app.get("/sse", async (_, res) => {
   setAppId(transport.sessionId, appIdFromQuery);
 
   server.onclose = async () => {
-    console.log("Server closing or connection lost...");
+    // console.log("Server closing or connection lost...");
     await cleanup();
     await server.close();
     deleteAppId(transport.sessionId);
@@ -30,11 +30,11 @@ app.get("/sse", async (_, res) => {
 });
 
 app.post("/message", async (req, res) => {
-  console.log("Received message");
+  // console.log("Received message");
   await transport.handlePostMessage(req, res);
 });
 
 const PORT = process.env.PORT || 3010;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  // console.log(`Server is running on port ${PORT}`);
 });
