@@ -11,7 +11,6 @@ import {
     ListToolsRequestSchema,
     LoggingLevel,
     ReadResourceRequestSchema,
-    Resource,
     SetLevelRequestSchema,
     SubscribeRequestSchema,
     UnsubscribeRequestSchema,
@@ -28,21 +27,24 @@ import IterateImageTool from "@/tools/iterate-image";
 import InspectImageSessionTool from "@/tools/inspect-image-session";
 import ExportImageAssetTool from "@/tools/export-image-asset";
 import { getAppId } from "@/utils/sessionIdToAppId";
+import { getAssetFile } from "@/utils/og-image-api";
 
 /* Input schemas for tools implemented in this server */
 
-// Example completion values
+// Example completion values for prompts
 const EXAMPLE_COMPLETIONS = {
-    style: ["casual", "formal", "technical", "friendly"],
-    temperature: ["0", "0.5", "0.7", "1.0"],
-    resourceId: ["1", "2", "3", "4", "5"],
+    diagramType: ["flowchart", "sequence", "architecture", "er-diagram", "state", "other"],
+    assetType: ["icons", "social-cards", "diagrams", "illustrations"],
+    style: ["outline", "filled", "duotone", "3d"],
+    count: ["2", "3", "4", "5", "6", "7", "8", "9", "10"],
 };
 
 
 enum PromptName {
-    SIMPLE = "simple_prompt",
-    COMPLEX = "complex_prompt",
-    RESOURCE = "resource_prompt",
+    CREATE_BRANDED_DIAGRAM = "create-branded-diagram",
+    ITERATE_AND_REFINE = "iterate-and-refine",
+    CREATE_ASSET_SET = "create-asset-set",
+    QUICK_ICON = "quick-icon",
 }
 
 export const createServer = () => {
@@ -147,50 +149,14 @@ export const createServer = () => {
         return await server.request(request, CreateMessageResultSchema);
     };
 
-    const ALL_RESOURCES: Resource[] = Array.from({ length: 100 }, (_, i) => {
-        const uri = `test://static/resource/${i + 1}`;
-        if (i % 2 === 0) {
-            return {
-                uri,
-                name: `Resource ${i + 1}`,
-                mimeType: "text/plain",
-                text: `Resource ${i + 1}: This is a plaintext resource`,
-            };
-        } else {
-            const buffer = Buffer.from(`Resource ${i + 1}: This is a base64 blob`);
-            return {
-                uri,
-                name: `Resource ${i + 1}`,
-                mimeType: "application/octet-stream",
-                blob: buffer.toString("base64"),
-            };
-        }
-    });
+    // Resources are dynamically fetched from the og-image-agent API
+    // No static resources - assets are accessed via the asset:// URI template
 
-    const PAGE_SIZE = 10;
-
-    server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
-        const cursor = request.params?.cursor;
-        let startIndex = 0;
-
-        if (cursor) {
-            const decodedCursor = parseInt(atob(cursor), 10);
-            if (!isNaN(decodedCursor)) {
-                startIndex = decodedCursor;
-            }
-        }
-
-        const endIndex = Math.min(startIndex + PAGE_SIZE, ALL_RESOURCES.length);
-        const resources = ALL_RESOURCES.slice(startIndex, endIndex);
-
-        let nextCursor: string | undefined;
-        if (endIndex < ALL_RESOURCES.length) {
-            nextCursor = btoa(endIndex.toString());
-        }
-
+    server.setRequestHandler(ListResourcesRequestSchema, async () => {
+        // Resources are accessed via URI templates, not listed statically
+        // Generated assets can be accessed via asset://{sessionId}/{assetId}
         return {
-            resources,
-            nextCursor,
+            resources: [],
         };
     });
 
@@ -198,9 +164,9 @@ export const createServer = () => {
         return {
             resourceTemplates: [
                 {
-                    uriTemplate: "test://static/resource/{id}",
-                    name: "Static Resource",
-                    description: "A static resource with a numeric ID",
+                    uriTemplate: "asset://{sessionId}/{assetId}",
+                    name: "Generated Image Asset",
+                    description: "Access generated image assets by session and asset ID. Use inspectImageSession to find asset IDs.",
                 },
             ],
         };
@@ -209,17 +175,38 @@ export const createServer = () => {
     server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         const uri = request.params.uri;
 
-        if (uri.startsWith("test://static/resource/")) {
-            const index = parseInt(uri.split("/").pop() ?? "", 10) - 1;
-            if (index >= 0 && index < ALL_RESOURCES.length) {
-                const resource = ALL_RESOURCES[index];
+        // Handle asset:// URIs
+        if (uri.startsWith("asset://")) {
+            const parts = uri.replace("asset://", "").split("/");
+            if (parts.length !== 2) {
+                throw new Error(`Invalid asset URI format. Expected: asset://{sessionId}/{assetId}`);
+            }
+            const [sessionId, assetId] = parts;
+            
+            // Validate UUID format
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(sessionId) || !uuidRegex.test(assetId)) {
+                throw new Error("Invalid session ID or asset ID format - must be valid UUIDs");
+            }
+
+            try {
+                const { data, contentType } = await getAssetFile(assetId);
                 return {
-                    contents: [resource],
+                    contents: [
+                        {
+                            uri,
+                            mimeType: contentType,
+                            blob: data.toString("base64"),
+                        },
+                    ],
                 };
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                throw new Error(`Failed to fetch asset: ${message}`);
             }
         }
 
-        throw new Error(`Unknown resource: ${uri}`);
+        throw new Error(`Unknown resource URI scheme: ${uri}`);
     });
 
     server.setRequestHandler(SubscribeRequestSchema, async (request) => {
@@ -240,33 +227,71 @@ export const createServer = () => {
         return {
             prompts: [
                 {
-                    name: PromptName.SIMPLE,
-                    description: "A prompt without arguments",
-                },
-                {
-                    name: PromptName.COMPLEX,
-                    description: "A prompt with arguments",
+                    name: PromptName.CREATE_BRANDED_DIAGRAM,
+                    description: "Guided workflow for creating professional diagrams that match your brand identity",
                     arguments: [
                         {
-                            name: "temperature",
-                            description: "Temperature setting",
+                            name: "diagramType",
+                            description: "Type of diagram: flowchart, sequence, architecture, er-diagram, state, or other",
                             required: true,
                         },
                         {
-                            name: "style",
-                            description: "Output style",
+                            name: "description",
+                            description: "Brief description of what the diagram should show",
+                            required: true,
+                        },
+                    ],
+                },
+                {
+                    name: PromptName.ITERATE_AND_REFINE,
+                    description: "Best practices for iterating on generated images to achieve the perfect result",
+                    arguments: [
+                        {
+                            name: "sessionId",
+                            description: "The session UUID containing the image",
+                            required: true,
+                        },
+                        {
+                            name: "assetId",
+                            description: "The asset UUID to iterate on",
+                            required: true,
+                        },
+                        {
+                            name: "issue",
+                            description: "What issue are you trying to fix?",
                             required: false,
                         },
                     ],
                 },
                 {
-                    name: PromptName.RESOURCE,
-                    description: "A prompt that includes an embedded resource reference",
+                    name: PromptName.CREATE_ASSET_SET,
+                    description: "Create a set of visually consistent images (icons, social cards, diagrams, illustrations)",
                     arguments: [
                         {
-                            name: "resourceId",
-                            description: "Resource ID to include (1-100)",
+                            name: "assetType",
+                            description: "Type of assets: icons, social-cards, diagrams, or illustrations",
                             required: true,
+                        },
+                        {
+                            name: "count",
+                            description: "How many assets in the set (2-10)",
+                            required: true,
+                        },
+                    ],
+                },
+                {
+                    name: PromptName.QUICK_ICON,
+                    description: "Quickly generate a simple icon with sensible defaults",
+                    arguments: [
+                        {
+                            name: "iconDescription",
+                            description: "What the icon should represent (e.g., 'settings gear', 'user profile')",
+                            required: true,
+                        },
+                        {
+                            name: "style",
+                            description: "Icon style: outline, filled, duotone, or 3d (defaults to filled)",
+                            required: false,
                         },
                     ],
                 },
@@ -277,51 +302,131 @@ export const createServer = () => {
     server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
 
-        if (name === PromptName.SIMPLE) {
+        if (name === PromptName.CREATE_BRANDED_DIAGRAM) {
+            const diagramType = args?.diagramType || "flowchart";
+            const description = args?.description || "a diagram";
             return {
                 messages: [
                     {
                         role: "user",
                         content: {
                             type: "text",
-                            text: "This is a simple prompt without arguments.",
+                            text: `I need to create a ${diagramType} diagram: ${description}
+
+Please help me create this diagram by following these steps:
+
+## Step 1: Gather Brand Context
+Before generating, I need to provide:
+- **Brand colors**: What are my primary and secondary brand colors? (hex codes like #0033A0)
+- **Style preferences**: Modern, minimalist, corporate, playful, technical?
+- **Project context**: What is this diagram for? (documentation, presentation, website)
+
+## Step 2: Define the Diagram Structure
+Help me outline the diagram structure:
+- What are the main components/nodes?
+- What are the relationships/flows between them?
+- Should we use Mermaid or D2 syntax?
+
+## Step 3: Choose Output Style
+- **draft**: Quick preview (fastest, minimal styling)
+- **standard**: AI-enhanced with brand colors (recommended for most cases)
+- **premium**: Full AI polish - stunning professional artwork (best for hero images, may need iteration)
+
+## Step 4: Generate
+Once we have the context, generate the diagram using the \`generateImage\` tool with:
+- kind: "diagram"
+- brandColors: [my colors]
+- stylePreferences: [my style]
+- projectContext: [my context]
+- outputStyle: [chosen style]
+
+## Tips for Best Results
+- For complex diagrams, start with 'standard' output style
+- If the result has clipping or duplicates, regenerate with explicit instructions
+- Use the iterateImage tool for refinements rather than regenerating from scratch`,
                         },
                     },
                 ],
             };
         }
 
-        if (name === PromptName.COMPLEX) {
+        if (name === PromptName.ITERATE_AND_REFINE) {
+            const sessionId = args?.sessionId || "[sessionId]";
+            const assetId = args?.assetId || "[assetId]";
+            const issueContext = args?.issue 
+                ? `\n\n**Current issue to address**: ${args.issue}`
+                : "";
+
             return {
                 messages: [
                     {
                         role: "user",
                         content: {
                             type: "text",
-                            text: `This is a complex prompt with arguments: temperature=${args?.temperature}, style=${args?.style}`,
+                            text: `I want to iterate on asset ${assetId} in session ${sessionId}.${issueContext}
+
+## First: Inspect the Asset
+Use \`inspectImageSession(sessionId=${sessionId})\` to review:
+- What toolchain was used (mermaid, d2, openai, gemini)?
+- What was the original prompt?
+- What metadata is stored (diagram source, colors used)?
+
+## Common Issues and Solutions
+
+### Clipped Edges / Elements Cut Off
+- Include padding instructions: "ensure 20px padding on all edges"
+- For diagrams: regenerate with explicit Mermaid/D2 source
+- Try 'standard' output style instead of 'premium'
+
+### Duplicate Elements
+- This happens with 'premium' GPT-Image polish
+- Explicitly state: "no duplicate boxes or labels"
+- Consider using 'standard' for accuracy
+
+### Wrong Colors / Style
+- Use \`iterateImage\` with specific color instructions: "change primary color to #0033A0"
+- Reference the original brandColors if they were provided
+
+### Text Readability Issues
+- Request "high contrast text"
+- Specify "minimum 14px font size"
+- Try 'gemini-pro' model for better text rendering
+
+### Layout Problems
+- For diagrams: provide the exact Mermaid/D2 source to preserve structure
+- Add direction hints: "left to right flow", "top to bottom hierarchy"
+
+## Using the Iterate Tool
+\`\`\`
+iterateImage({
+  sessionId: "${sessionId}",
+  assetId: "${assetId}",
+  prompt: "Specific changes you want..."
+})
+\`\`\`
+
+## When to Regenerate Instead
+- If the fundamental structure is wrong
+- If you need a completely different style
+- If iteration attempts aren't converging
+
+Start by inspecting the asset, then tell me what you'd like to change.`,
                         },
                     },
-                    {
-                        role: "assistant",
-                        content: {
-                            type: "text",
-                            text: "I understand. You've provided a complex prompt with temperature and style arguments. How would you like me to proceed?",
-                        },
-                    }
                 ],
             };
         }
 
-        if (name === PromptName.RESOURCE) {
-            const resourceId = parseInt(args?.resourceId as string, 10);
-            if (isNaN(resourceId) || resourceId < 1 || resourceId > 100) {
-                throw new Error(
-                    `Invalid resourceId: ${args?.resourceId}. Must be a number between 1 and 100.`
-                );
-            }
-
-            const resourceIndex = resourceId - 1;
-            const resource = ALL_RESOURCES[resourceIndex];
+        if (name === PromptName.CREATE_ASSET_SET) {
+            const assetType = args?.assetType || "icons";
+            const count = parseInt(args?.count as string, 10) || 3;
+            const kindMap: Record<string, string> = {
+                "icons": "icon",
+                "social-cards": "social-card",
+                "diagrams": "diagram",
+                "illustrations": "illustration",
+            };
+            const kind = kindMap[assetType] || "illustration";
 
             return {
                 messages: [
@@ -329,14 +434,110 @@ export const createServer = () => {
                         role: "user",
                         content: {
                             type: "text",
-                            text: `This prompt includes Resource ${resourceId}. Please analyze the following resource:`,
+                            text: `I need to create a set of ${count} consistent ${assetType}.
+
+## Creating Visually Consistent Assets
+
+### Step 1: Establish the Style Guide
+Before creating any assets, define:
+- **Color palette**: Primary, secondary, accent colors (hex codes)
+- **Style**: Modern, flat, 3D, hand-drawn, technical, etc.
+- **Background**: Transparent, solid color, gradient?
+- **Dimensions**: Same size for all? Specific aspect ratios?
+
+### Step 2: Create the First Asset
+Generate the first asset with full context:
+\`\`\`
+generateImage({
+  prompt: "[first asset description]",
+  kind: "${kind}",
+  brandColors: ["#primary", "#secondary"],
+  stylePreferences: "[your style]",
+  projectContext: "Part of a ${count}-asset set for [purpose]",
+  outputStyle: "standard"
+})
+\`\`\`
+
+### Step 3: Use First Asset as Reference
+Once you're happy with the first asset, use its ID as a reference for consistency:
+\`\`\`
+generateImage({
+  prompt: "[second asset description]",
+  kind: "${kind}",
+  referenceAssetId: "[first asset ID]",
+  brandColors: ["#primary", "#secondary"],
+  stylePreferences: "[same style]",
+  outputStyle: "standard"
+})
+\`\`\`
+
+### Step 4: Iterate for Consistency
+If an asset doesn't match the set:
+- Use \`iterateImage\` to adjust colors/style
+- Reference the prompt: "match the style of asset [ID]"
+- Keep the same brandColors and stylePreferences
+
+### Tips for ${assetType}
+${assetType === 'icons' ? `
+- Use \`transparent: true\` for all icons
+- Keep complexity consistent (same level of detail)
+- Use the same line weights and corner radius
+- Consider a consistent canvas size (e.g., 512x512)` : ''}
+${assetType === 'social-cards' ? `
+- Maintain consistent text placement zones
+- Use the same typography style
+- Keep brand logo in the same position
+- Standard sizes: 1200x630 (OG), 1200x675 (Twitter)` : ''}
+${assetType === 'diagrams' ? `
+- Use the same diagram syntax (all Mermaid or all D2)
+- Consistent node shapes and colors
+- Same arrow styles and line weights
+- Matching background treatment` : ''}
+${assetType === 'illustrations' ? `
+- Same art style throughout
+- Consistent character proportions (if applicable)
+- Matching color saturation and contrast
+- Similar level of detail and complexity` : ''}
+
+What ${assetType} do you need to create? Let's start with defining your style guide.`,
                         },
                     },
+                ],
+            };
+        }
+
+        if (name === PromptName.QUICK_ICON) {
+            const iconDescription = args?.iconDescription || "an icon";
+            const style = (args?.style as string) || "filled";
+            const styleGuide: Record<string, string> = {
+                outline: "line-art style with consistent 2px stroke weight, no fills",
+                filled: "solid filled shapes, clean and simple",
+                duotone: "two-tone design with primary color and lighter accent",
+                "3d": "subtle 3D effect with soft shadows and gradients",
+            };
+            const styleDesc = styleGuide[style] || styleGuide.filled;
+
+            return {
+                messages: [
                     {
                         role: "user",
                         content: {
-                            type: "resource",
-                            resource: resource,
+                            type: "text",
+                            text: `Generate a ${style} icon: ${iconDescription}
+
+Use these settings for best results:
+\`\`\`
+generateImage({
+  prompt: "${iconDescription} icon, ${styleDesc}, centered on canvas, professional quality",
+  kind: "icon",
+  transparent: true,
+  quality: "high",
+  stylePreferences: "${style} icon style, clean vector aesthetic, suitable for UI",
+  outputStyle: "standard"
+})
+\`\`\`
+
+This will create a transparent PNG icon ready for use in your application.`,
                         },
                     },
                 ],
@@ -431,14 +632,8 @@ export const createServer = () => {
         const { ref, argument } = request.params;
 
         if (ref.type === "ref/resource") {
-            const resourceId = ref.uri.split("/").pop();
-            if (!resourceId) return { completion: { values: [] } };
-
-            // Filter resource IDs that start with the input value
-            const values = EXAMPLE_COMPLETIONS.resourceId.filter((id) =>
-                id.startsWith(argument.value)
-            );
-            return { completion: { values, hasMore: false, total: values.length } };
+            // Asset resources use UUIDs, no autocomplete suggestions
+            return { completion: { values: [] } };
         }
 
         if (ref.type === "ref/prompt") {
@@ -448,7 +643,7 @@ export const createServer = () => {
             if (!completions) return { completion: { values: [] } };
 
             const values = completions.filter((value) =>
-                value.startsWith(argument.value)
+                value.toLowerCase().startsWith(argument.value.toLowerCase())
             );
             return { completion: { values, hasMore: false, total: values.length } };
         }
