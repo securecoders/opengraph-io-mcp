@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/draft/server.schema.json",
+  "name": "io.github.securecoders/opengraph-io-mcp",
+  "title": "OpenGraph.io MCP Server",
+  "description": "MCP server for OpenGraph.io API - fetch OG data, screenshots, scrape, and generate images",
+  "version": "1.1.2",
+  "repository": {
+    "url": "https://github.com/securecoders/opengraph-io-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "opengraph-io-mcp",
+      "version": "1.1.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
