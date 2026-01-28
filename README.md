@@ -9,6 +9,8 @@ Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract arti
 
 ## Available Tools
 
+### OpenGraph.io Data Tools
+
 | Tool Name | OpenGraph.io API Endpoint | Description | Documentation |
 |-----------|---------------------------|-------------|---------------|
 | **Get OG Data** | `/api/1.1/site/<URL>` | Extracts Open Graph data from a URL | [OpenGraph.io Docs](https://www.opengraph.io/documentation#get-open-graph) |
@@ -16,6 +18,116 @@ Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract arti
 | **Get OG Screenshot** | `/api/1.1/screenshot/<URL>` | Gets a screenshot of a webpage using OpenGraph's screenshot endpoint | [OpenGraph.io Docs](https://www.opengraph.io/documentation#screenshot-site) |
 | **Get OG Query** | `/api/1.1/query/<URL>` | Query a site with a custom question and optional response structure | [OpenGraph.io Docs](https://www.opengraph.io/documentation#query-site) |
 | **Get OG Extract** | `/api/1.1/extract/<URL>` | Extract specific HTML elements (h1, p, etc.) from a webpage | [OpenGraph.io Docs](https://www.opengraph.io/documentation#extract-site) |
+
+### Image Generation Tools
+
+| Tool Name | Description |
+|-----------|-------------|
+| **Generate Image** | Create professional images: illustrations, diagrams (Mermaid/D2/Vega), icons, social cards, or QR codes |
+| **Iterate Image** | Refine, modify, or create variations of existing generated images |
+| **Inspect Image Session** | Retrieve session metadata and asset history for image generation sessions |
+| **Export Image Asset** | Save generated images to the local filesystem |
+
+## Image Generation
+
+The og-mcp server includes powerful AI-driven image generation capabilities, perfect for creating social media cards, architecture diagrams, icons, and more.
+
+### Generate Image
+
+Create images from natural language prompts or diagram code.
+
+**Supported Image Types (`kind`):**
+- `illustration` - General-purpose AI-generated images
+- `diagram` - Technical diagrams from Mermaid, D2, or Vega syntax
+- `icon` - App icons and logos
+- `social-card` - OG images optimized for social sharing
+- `qr-code` - QR codes with optional styling
+
+**Preset Aspect Ratios:**
+- Social: `og-image`, `twitter-card`, `twitter-post`, `linkedin-post`, `facebook-post`, `instagram-square`, `instagram-portrait`, `instagram-story`, `youtube-thumbnail`
+- Standard: `wide`, `square`, `portrait`
+- Icons: `icon-small`, `icon-medium`, `icon-large`
+
+**Style Presets:**
+`github-dark`, `github-light`, `notion`, `vercel`, `linear`, `stripe`, `neon-cyber`, `pastel`, `minimal-mono`, `corporate`, `startup`, `documentation`, `technical`
+
+**Diagram Templates:**
+`auth-flow`, `oauth2-flow`, `crud-api`, `microservices`, `ci-cd`, `gitflow`, `database-schema`, `state-machine`, `user-journey`, `cloud-architecture`, `system-context`
+
+**Example Usage:**
+
+```
+// Generate a social card
+generateImage({
+  prompt: "A modern tech startup hero image with abstract geometric shapes",
+  kind: "social-card",
+  aspectRatio: "og-image",
+  stylePreset: "vercel",
+  brandColors: ["#0070F3", "#000000"]
+})
+
+// Generate a diagram from Mermaid syntax
+generateImage({
+  prompt: "graph TD; A[User] --> B[API]; B --> C[Database]",
+  kind: "diagram",
+  diagramSyntax: "mermaid",
+  stylePreset: "github-dark"
+})
+```
+
+### Iterate Image
+
+Refine or modify an existing generated image.
+
+**Use cases:**
+- Edit specific parts: "change the background to blue"
+- Apply style changes: "make it more minimalist"
+- Fix issues: "remove the text", "make the icon larger"
+- Crop to specific coordinates
+
+**Example:**
+```
+iterateImage({
+  sessionId: "uuid-from-generate",
+  assetId: "uuid-from-generate",
+  prompt: "Change the primary color to #0033A0 and add a subtle drop shadow"
+})
+```
+
+### Inspect Image Session
+
+Review session details and find asset IDs for iteration.
+
+**Returns:**
+- Session metadata (creation time, name, status)
+- List of all assets with prompts, toolchains, and status
+- Parent-child relationships showing iteration history
+
+**Example:**
+```
+inspectImageSession({
+  sessionId: "uuid-from-generate"
+})
+```
+
+### Export Image Asset
+
+Save generated images to your local filesystem.
+
+**Security features:**
+- Requires absolute paths
+- Blocks writes to system directories (`/etc`, `/usr`, `/bin`, `/System`, etc.)
+- Automatically creates parent directories
+
+**Example:**
+```
+exportImageAsset({
+  sessionId: "uuid-from-generate",
+  assetId: "uuid-from-generate",
+  destinationPath: "/Users/me/project/images/hero.png",
+  overwrite: true
+})
+```
 
 ## How it works
 

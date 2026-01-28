@@ -1,6 +1,6 @@
 {
   "name": "opengraph-io-mcp",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "main": "dist/server.js",
   "bin": {
     "opengraph-io-mcp": "dist/server-stdio.js",
