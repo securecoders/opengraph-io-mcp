@@ -19,8 +19,8 @@ Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract arti
 
 ## How it works
 
-![og-mcp Architecture Diagram](how-it-works.png)
-*<sup>Diagram generated with [og-mcp's image generation tools](https://github.com/AcidOP/og-image-agent)</sup>*
+![og-mcp Architecture Diagram](https://raw.githubusercontent.com/securecoders/opengraph-io-mcp/cfa5a37fc64b99f4ee638f3a6b90e7cf4d222362/how-it-works.png)
+*<sup>Diagram generated with og-mcp's image generation tools</sup>*
 
 The og-mcp server acts as a bridge between AI clients (like Claude or other LLMs) and the OpenGraph.io API:
 
