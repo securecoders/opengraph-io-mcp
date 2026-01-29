@@ -242,7 +242,7 @@ function generateServerConfig(appId: string): McpServerConfig {
         command: "npx",
         args: ["-y", "opengraph-io-mcp"],
         env: {
-            APP_ID: appId,
+            OPENGRAPH_APP_ID: appId,
         },
     };
 }
@@ -264,7 +264,7 @@ function generateVSCodeConfig(_appId: string): McpConfig {
                 command: "npx",
                 args: ["-y", "opengraph-io-mcp"],
                 env: {
-                    APP_ID: "${input:opengraph-app-id}",
+                    OPENGRAPH_APP_ID: "${input:opengraph-app-id}",
                 },
             },
         },
