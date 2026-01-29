@@ -66,7 +66,7 @@ export const createServer = () => {
 
     let subscriptions: Set<string> = new Set();
     let subsUpdateInterval: NodeJS.Timeout | undefined;
-    let stdErrUpdateInterval: NodeJS.Timeout | undefined;
+    let logLevel: LoggingLevel = "debug";
 
     // Set up update interval for subscribed resources
     subsUpdateInterval = setInterval(() => {
@@ -77,49 +77,6 @@ export const createServer = () => {
             });
         }
     }, 10000);
-
-    let logLevel: LoggingLevel = "debug";
-    let logsUpdateInterval: NodeJS.Timeout | undefined;
-    const messages = [
-        { level: "debug", data: "Debug-level message" },
-        { level: "info", data: "Info-level message" },
-        { level: "notice", data: "Notice-level message" },
-        { level: "warning", data: "Warning-level message" },
-        { level: "error", data: "Error-level message" },
-        { level: "critical", data: "Critical-level message" },
-        { level: "alert", data: "Alert level-message" },
-        { level: "emergency", data: "Emergency-level message" },
-    ];
-
-    const isMessageIgnored = (level: LoggingLevel): boolean => {
-        const currentLevel = messages.findIndex((msg) => logLevel === msg.level);
-        const messageLevel = messages.findIndex((msg) => level === msg.level);
-        return messageLevel < currentLevel;
-    };
-
-    // Set up update interval for random log messages
-    logsUpdateInterval = setInterval(() => {
-        let message = {
-            method: "notifications/message",
-            params: messages[Math.floor(Math.random() * messages.length)],
-        };
-        if (!isMessageIgnored(message.params.level as LoggingLevel))
-            server.notification(message);
-    }, 20000);
-
-
-    // Set up update interval for stderr messages
-    stdErrUpdateInterval = setInterval(() => {
-        const shortTimestamp = new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-        server.notification({
-            method: "notifications/stderr",
-            params: { content: `${shortTimestamp}: A stderr message` },
-        });
-    }, 30000);
 
     // Helper method to request sampling from client
     const requestSampling = async (
@@ -670,8 +627,6 @@ This will create a transparent PNG icon ready for use in your application.`,
 
     const cleanup = async () => {
         if (subsUpdateInterval) clearInterval(subsUpdateInterval);
-        if (logsUpdateInterval) clearInterval(logsUpdateInterval);
-        if (stdErrUpdateInterval) clearInterval(stdErrUpdateInterval);
     };
 
     return { server, cleanup };
