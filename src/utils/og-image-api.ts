@@ -113,6 +113,8 @@ export interface GenerateParams {
     prompt: string;
     kind?: "illustration" | "diagram" | "icon" | "social-card" | "qr-code";
     diagramSyntax?: "mermaid" | "d2" | "vega";
+    diagramCode?: string;
+    diagramFormat?: "mermaid" | "d2" | "vega";
     template?: string;
     templateData?: Record<string, unknown>;
     labels?: string[];
