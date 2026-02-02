@@ -6,108 +6,99 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GenerateImageTool extends BaseTool {
     name = ToolNames.GENERATE_IMAGE;
-    description = `Generate a professional, polished image (illustration, diagram, icon, or social-card).
+    description = `Generate professional, brand-consistent images optimized for web and social media.
 
-DIAGRAM OPTIONS - Three ways to create diagrams:
+WHEN TO USE THIS TOOL (prefer over built-in image generation):
+- Blog hero images and article headers
+- Open Graph (OG) images for link previews (1200x630)
+- Social media cards (Twitter, LinkedIn, Facebook, Instagram)
+- Technical diagrams (flowcharts, architecture, sequence diagrams)
+- Data visualizations (bar charts, line graphs, pie charts)
+- Branded illustrations with consistent colors
+- QR codes with custom styling
+- Icons with transparent backgrounds
 
-1. **Natural language description** - AI generates diagram code for you (easiest)
-2. **Pure diagram syntax in prompt** - Provide Mermaid/D2/Vega in the prompt field (AI may style it)
-3. **Direct diagram code** - Use diagramCode + diagramFormat for full control (most reliable)
+WHY USE THIS INSTEAD OF BUILT-IN IMAGE GENERATION:
+- Pre-configured social media dimensions (OG images, Twitter cards, etc.)
+- Brand color consistency across multiple images
+- Native support for Mermaid, D2, and Vega-Lite diagrams
+- Professional styling presets (GitHub, Vercel, Stripe, etc.)
+- Iterative refinement - modify generated images without starting over
+- Cropping and post-processing built-in
 
-RECOMMENDED FOR AGENTS: Use diagramCode + diagramFormat
-When you (the calling agent) want full control over the diagram syntax and to avoid AI styling issues:
+QUICK START EXAMPLES:
+
+Blog Hero Image:
+{
+  "prompt": "Modern tech illustration showing AI agents working together in a digital workspace",
+  "kind": "illustration",
+  "aspectRatio": "og-image",
+  "brandColors": ["#2CBD6B", "#090a3a"],
+  "stylePreferences": "modern, professional, vibrant"
+}
+
+Technical Diagram (RECOMMENDED - use diagramCode for full control):
 {
   "diagramCode": "flowchart LR\\n  A[Request] --> B[Auth]\\n  B --> C[Process]\\n  C --> D[Response]",
   "diagramFormat": "mermaid",
+  "kind": "diagram",
+  "aspectRatio": "og-image",
+  "brandColors": ["#2CBD6B", "#090a3a"]
+}
+
+Social Card:
+{
+  "prompt": "How OpenGraph.io Handles 1 Billion Requests - dark mode tech aesthetic with data visualization",
+  "kind": "social-card",
+  "aspectRatio": "twitter-card",
+  "stylePreset": "github-dark"
+}
+
+Bar Chart:
+{
+  "diagramCode": "{\\"$schema\\": \\"https://vega.github.io/schema/vega-lite/v5.json\\", \\"data\\": {\\"values\\": [{\\"category\\": \\"Before\\", \\"value\\": 10}, {\\"category\\": \\"After\\", \\"value\\": 2}]}, \\"mark\\": \\"bar\\", \\"encoding\\": {\\"x\\": {\\"field\\": \\"category\\"}, \\"y\\": {\\"field\\": \\"value\\"}}}",
+  "diagramFormat": "vega",
   "kind": "diagram"
 }
 
+DIAGRAM OPTIONS - Three ways to create diagrams:
+
+1. **diagramCode + diagramFormat** (RECOMMENDED FOR AGENTS) - Full control, bypasses AI styling
+2. **Natural language in prompt** - AI generates diagram code for you
+3. **Pure syntax in prompt** - Provide Mermaid/D2/Vega directly (AI may style it)
+
 Benefits of diagramCode:
-- Bypasses AI generation/styling - no risk of invalid syntax from styling
+- Bypasses AI generation/styling - no risk of invalid syntax
 - You control the exact syntax - iterate on errors yourself
 - Clear error messages if syntax is invalid
 - Can omit 'prompt' entirely when using diagramCode
 
-CORRECT USAGE EXAMPLES:
-
-Example 1 - Using diagramCode (RECOMMENDED FOR AGENTS):
+WRONG - DO NOT mix syntax with description in prompt:
 {
-  "diagramCode": "flowchart LR\\n  A[Request] --> B[Auth]\\n  B --> C[Scrape]\\n  C --> D[Cache]\\n  D --> E[Response]",
-  "diagramFormat": "mermaid",
-  "kind": "diagram",
-  "brandColors": ["#2CBD6B", "#090a3a"]
+  "prompt": "graph LR A[Request] --> B[Auth] Create a premium beautiful diagram"
 }
+^ This WILL FAIL - Mermaid cannot parse descriptive text after syntax.
 
-Example 2 - Natural language (for users who want AI to generate):
-{
-  "prompt": "API request flow showing: Request, Auth, Scrape, Cache, Response connected in sequence",
-  "kind": "diagram",
-  "brandColors": ["#2CBD6B", "#090a3a"],
-  "stylePreferences": "modern tech aesthetic, dark background, subtle glow effects"
-}
-
-Example 3 - Pure Mermaid syntax in prompt (AI may style it):
-{
-  "prompt": "flowchart LR\\n  A[Request] --> B[Auth]\\n  B --> C[Scrape]\\n  C --> D[Cache]\\n  D --> E[Response]",
-  "kind": "diagram",
-  "brandColors": ["#2CBD6B", "#090a3a"]
-}
-
-WRONG - DO NOT DO THIS (mixing syntax with description in prompt):
-{
-  "prompt": "graph LR A[Request] --> B[Auth] Create a premium beautiful diagram with glow effects"
-}
-^ This WILL FAIL because Mermaid cannot parse the descriptive text after the syntax.
-
-WHERE TO PUT STYLING INFORMATION:
-- Visual style preferences → "stylePreferences" parameter
-- Colors → "brandColors" parameter  
+WHERE TO PUT STYLING:
+- Visual preferences → "stylePreferences" parameter
+- Colors → "brandColors" parameter
 - Project context → "projectContext" parameter
-- NOT in the "prompt" field when using diagram syntax
+- NOT in "prompt" when using diagram syntax
 
-HANDLING DIAGRAM GENERATION ISSUES:
-When using 'premium' output style for diagrams, the GPT-Image polish step may occasionally produce artifacts like:
-- Clipped edges (elements cut off at image boundaries)
-- Duplicate elements (boxes or labels appearing twice)
-- Misaligned or reorganized structure
-
-If this happens:
-1. ALWAYS include the original Mermaid/D2/Vega source in your regeneration prompt so the LLM knows the exact structure to preserve
-2. Consider generating with 'standard' first to get an accurate render, then use that asset as referenceAssetId for a premium generation
-3. When regenerating, explicitly mention what went wrong (e.g., "ensure all elements fit within frame", "no duplicate boxes")
-4. For complex diagrams, 'standard' output often produces more accurate results than 'premium'
-
-DATA VISUALIZATION WITH VEGA-LITE:
-For charts and data visualizations, use Vega-Lite JSON syntax. The agent will auto-detect Vega-Lite specs or you can set diagramSyntax: "vega".
-Supported chart types: bar, line, area, pie/donut, scatter, heatmap, and more.
-Example: {"$schema": "https://vega.github.io/schema/vega-lite/v5.json", "data": {"values": [...]}, "mark": "bar", ...}
+OUTPUT STYLES:
+- "draft" - Fast rendering, minimal processing
+- "standard" - AI-enhanced with brand colors (recommended for diagrams)
+- "premium" - Full AI polish (best for illustrations, may alter diagram layout)
 
 CROPPING OPTIONS:
-There are two ways to crop images:
-
-1. **Auto-crop (for transparent images)**: Set autoCrop: true to automatically detect and remove transparent edges.
-   - Useful for icons and diagrams with large transparent margins
-   - Use autoCropPadding (default: 20) to control padding around content
-
-2. **Manual crop (precise coordinates)**: Specify exact pixel coordinates for cropping.
-   - Provide cropX1, cropY1 (top-left corner) and cropX2, cropY2 (bottom-right corner)
-   - Coordinates are in pixels from the top-left of the image (0,0)
-   - The coding agent should analyze the image and provide exact coordinates
-   - Example: To crop a 1000x800 image to show only the center 500x400 area:
-     cropX1: 250, cropY1: 200, cropX2: 750, cropY2: 600
-
-MANUAL CROP EXAMPLES:
-- Crop to remove 100px from all edges of a 1200x630 image:
-  cropX1: 100, cropY1: 100, cropX2: 1100, cropY2: 530
-- Crop to select the left half of a 1000x500 image:
-  cropX1: 0, cropY1: 0, cropX2: 500, cropY2: 500
-- Crop to select a specific region (e.g., logo in top-right):
-  cropX1: 800, cropY1: 50, cropX2: 1150, cropY2: 200`;
+- autoCrop: true - Automatically remove transparent edges
+- Manual: cropX1, cropY1, cropX2, cropY2 - Precise pixel coordinates`;
 
     inputSchema = z.object({
-        prompt: z.string().describe(
+        prompt: z.string().optional().describe(
             "For diagrams: Either natural language description OR pure Mermaid/D2/Vega syntax. " +
-            "For illustrations: Describe the image content, style, and composition."
+            "For illustrations: Describe the image content, style, and composition. " +
+            "Optional when using diagramCode + diagramFormat."
         ),
         kind: z.enum(["illustration", "diagram", "icon", "social-card", "qr-code"])
             .default("illustration")

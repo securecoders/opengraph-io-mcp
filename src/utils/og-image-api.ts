@@ -110,7 +110,7 @@ export interface SessionDetails {
 // ============================================
 
 export interface GenerateParams {
-    prompt: string;
+    prompt?: string;
     kind?: "illustration" | "diagram" | "icon" | "social-card" | "qr-code";
     diagramSyntax?: "mermaid" | "d2" | "vega";
     diagramCode?: string;
