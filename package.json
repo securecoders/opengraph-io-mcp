@@ -3,6 +3,7 @@
   "mcpName": "io.github.securecoders/opengraph-io-mcp",
   "version": "1.3.0",
   "main": "dist/server.js",
+  "module": "./src/server-stdio.ts",
   "bin": {
     "opengraph-io-mcp": "dist/server-stdio.js",
     "opengraph-io-mcp-install": "dist/installer.js"
@@ -17,7 +18,16 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:mcpb": "node scripts/build-mcpb.js"
   },
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "opengraph",
+    "web-scraping",
+    "screenshots",
+    "link-preview",
+    "claude",
+    "cursor"
+  ],
   "author": "securecoders",
   "license": "ISC",
   "description": "MCP tool for opengraph.io",
