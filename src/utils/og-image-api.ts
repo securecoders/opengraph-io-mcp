@@ -2,9 +2,15 @@ import { getBaseUrl } from "./og.js";
 
 /**
  * Get the base URL for the og-image-agent API
- * Uses the shared OG_BASE_URL with /image-agent/ path
+ * 
+ * Priority:
+ * 1. OG_IMAGE_AGENT_URL — direct override (e.g. http://localhost:8000 for local dev)
+ * 2. OG_BASE_URL + /image-agent — production default (e.g. https://opengraph.io/image-agent)
  */
 const getImageAgentBaseUrl = (): string => {
+    if (process.env.OG_IMAGE_AGENT_URL) {
+        return process.env.OG_IMAGE_AGENT_URL.replace(/\/+$/, '');
+    }
     return `${getBaseUrl()}/image-agent`;
 };
 

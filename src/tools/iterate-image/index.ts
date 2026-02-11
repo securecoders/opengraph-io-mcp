@@ -4,6 +4,26 @@ import { z } from "zod";
 import { iterateImage, getAssetFile, getSession, type IterateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+/**
+ * Classify an error message into a type to help AI assistants decide what action to take.
+ */
+function classifyError(message: string | undefined): "syntax_error" | "request_error" | "server_error" {
+    if (!message) return "server_error";
+    const lower = message.toLowerCase();
+    if (
+        lower.includes("syntax error") || lower.includes("parse error") ||
+        lower.includes("mermaid syntax") || lower.includes("d2 syntax") ||
+        lower.includes("vega spec") || lower.includes("vega render") ||
+        lower.includes("render failed")
+    ) return "syntax_error";
+    if (
+        lower.includes("invalid request") || lower.includes("is required") ||
+        lower.includes("must be") || lower.includes("not found") ||
+        lower.includes("invalid uuid")
+    ) return "request_error";
+    return "server_error";
+}
+
 class IterateImageTool extends BaseTool {
     name = ToolNames.ITERATE_IMAGE;
     description = `Refine, modify, or create variations of an existing generated image.
@@ -123,6 +143,7 @@ For diagram iterations:
             }
 
             // Return result for non-success
+            const errorType = classifyError(result.error);
             return {
                 content: [
                     {
@@ -133,17 +154,19 @@ For diagram iterations:
                             parentAssetId: result.parentAssetId,
                             status: result.status,
                             error: result.error,
+                            errorType,
                         }),
                     },
                 ],
             };
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorType = classifyError(errorMessage);
             return {
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify({ error: `Error iterating image: ${errorMessage}` }),
+                        text: JSON.stringify({ error: errorMessage, errorType }),
                     },
                 ],
             };
