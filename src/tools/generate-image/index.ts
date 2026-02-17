@@ -141,6 +141,20 @@ D2 simple flow:
   "kind": "diagram"
 }
 
+D2 with styling (use ONLY valid D2 style keywords):
+{
+  "diagramCode": "direction: right\\nserver: Web Server {\\n  style.fill: \\"#2CBD6B\\"\\n  style.stroke: \\"#090a3a\\"\\n  style.border-radius: 8\\n}\\ndatabase: PostgreSQL {\\n  style.fill: \\"#090a3a\\"\\n  style.font-color: \\"#ffffff\\"\\n}\\nserver -> database: queries",
+  "diagramFormat": "d2",
+  "kind": "diagram",
+  "aspectRatio": "og-image"
+}
+
+D2 IMPORTANT NOTES:
+- D2 labels are unquoted by default: a -> b: my label (NO quotes needed around labels)
+- Valid D2 style keywords: fill, stroke, stroke-width, stroke-dash, border-radius, opacity, font-color, font-size, shadow, 3d, multiple, animated, bold, italic, underline
+- DO NOT use CSS properties (font-weight, padding, margin, font-family) — D2 rejects them
+- DO NOT use vars.* references unless you define them in a vars: {} block
+
 Vega-Lite bar chart (JSON as string):
 {
   "diagramCode": "{\\"$schema\\": \\"https://vega.github.io/schema/vega-lite/v5.json\\", \\"data\\": {\\"values\\": [{\\"category\\": \\"A\\", \\"value\\": 28}, {\\"category\\": \\"B\\", \\"value\\": 55}]}, \\"mark\\": \\"bar\\", \\"encoding\\": {\\"x\\": {\\"field\\": \\"category\\"}, \\"y\\": {\\"field\\": \\"value\\"}}}",
