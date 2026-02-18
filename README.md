@@ -193,7 +193,7 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 | **Generate Image** | Create professional images: illustrations, diagrams (Mermaid/D2/Vega), icons, social cards, or QR codes |
 | **Iterate Image** | Refine, modify, or create variations of existing generated images |
 | **Inspect Image Session** | Retrieve session metadata and asset history for image generation sessions |
-| **Export Image Asset** | Save generated images to the local filesystem |
+| **Export Image Asset** | Export generated image assets as inline base64, with optional disk write when running locally |
 
 ## Image Generation
 
@@ -279,20 +279,23 @@ inspectImageSession({
 
 ### Export Image Asset
 
-Save generated images to your local filesystem.
+Export a generated image asset by session and asset ID. Returns the image inline as base64 along with metadata (format, dimensions, size).
 
-**Security features:**
-- Requires absolute paths
-- Blocks writes to system directories (`/etc`, `/usr`, `/bin`, `/System`, etc.)
-- Automatically creates parent directories
+When running locally (stdio transport), you can optionally provide a `destinationPath` to save the image to disk. On hosted/HTTP transport, the path is ignored and the image is returned inline only.
 
-**Example:**
+**Examples:**
 ```
+// Inline only (works everywhere)
+exportImageAsset({
+  sessionId: "uuid-from-generate",
+  assetId: "uuid-from-generate"
+})
+
+// Save to disk (stdio/local only)
 exportImageAsset({
   sessionId: "uuid-from-generate",
   assetId: "uuid-from-generate",
-  destinationPath: "/Users/me/project/images/hero.png",
-  overwrite: true
+  destinationPath: "/Users/me/project/images/hero.png"
 })
 ```
 

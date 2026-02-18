@@ -511,10 +511,9 @@ This will create a transparent PNG icon ready for use in your application.`,
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let { name, arguments: args } = request.params;
         
-        // Only attempt to get appId if we're using SSE transport
-        // For stdio transport we don't need appId
         const isSSETransport = server.transport && 'sessionId' in server.transport;
         const appId = isSSETransport ? getAppId(server.transport?.sessionId as string) : undefined;
+        const isLocal = !isSSETransport;
         
         let validatedArgs: any;
 
@@ -576,7 +575,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return inspect_session_tool.execute(validatedArgs);
 
             case ToolNames.EXPORT_IMAGE_ASSET:
-                const export_asset_tool = new ExportImageAssetTool(appId);
+                const export_asset_tool = new ExportImageAssetTool(appId, isLocal);
                 validatedArgs = export_asset_tool.inputSchema.parse(args);
                 return export_asset_tool.execute(validatedArgs);
 
