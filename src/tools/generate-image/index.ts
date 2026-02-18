@@ -4,6 +4,42 @@ import { z } from "zod";
 import { createAndGenerate, getAssetFile, type GenerateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+/**
+ * Classify an error message into a type to help AI assistants decide what action to take.
+ * - "syntax_error": The diagram code has invalid syntax. Fix the diagramCode and retry.
+ * - "request_error": The request is malformed (missing params, invalid values). Fix the request.
+ * - "server_error": The backend service failed. Retry later or use a different approach.
+ */
+function classifyError(message: string | undefined): "syntax_error" | "request_error" | "server_error" {
+    if (!message) return "server_error";
+    const lower = message.toLowerCase();
+    if (
+        lower.includes("syntax error") ||
+        lower.includes("parse error") ||
+        lower.includes("mermaid syntax") ||
+        lower.includes("d2 syntax") ||
+        lower.includes("d2 parse") ||
+        lower.includes("vega spec") ||
+        lower.includes("vega render") ||
+        lower.includes("invalid vega") ||
+        lower.includes("mermaid render failed") ||
+        lower.includes("d2 render failed")
+    ) {
+        return "syntax_error";
+    }
+    if (
+        lower.includes("invalid request") ||
+        lower.includes("is required") ||
+        lower.includes("must be") ||
+        lower.includes("invalid session") ||
+        lower.includes("not found") ||
+        lower.includes("invalid uuid")
+    ) {
+        return "request_error";
+    }
+    return "server_error";
+}
+
 class GenerateImageTool extends BaseTool {
     name = ToolNames.GENERATE_IMAGE;
     description = `Generate professional, brand-consistent images optimized for web and social media.
@@ -72,6 +108,59 @@ Benefits of diagramCode:
 - You control the exact syntax - iterate on errors yourself
 - Clear error messages if syntax is invalid
 - Can omit 'prompt' entirely when using diagramCode
+
+NEWLINE ENCODING: Use \\n (escaped newline) in JSON strings for line breaks in diagram code.
+
+diagramCode EXAMPLES (copy-paste ready):
+
+Mermaid flowchart:
+{
+  "diagramCode": "flowchart LR\\n  A[Request] --> B[Auth]\\n  B --> C[Process]\\n  C --> D[Response]",
+  "diagramFormat": "mermaid",
+  "kind": "diagram"
+}
+
+Mermaid sequence diagram:
+{
+  "diagramCode": "sequenceDiagram\\n  Client->>API: POST /login\\n  API->>DB: Validate\\n  DB-->>API: OK\\n  API-->>Client: Token",
+  "diagramFormat": "mermaid",
+  "kind": "diagram"
+}
+
+D2 architecture diagram:
+{
+  "diagramCode": "Frontend: {\\n  React\\n  Nginx\\n}\\nBackend: {\\n  API\\n  Database\\n}\\nFrontend -> Backend: REST API",
+  "diagramFormat": "d2",
+  "kind": "diagram"
+}
+
+D2 simple flow:
+{
+  "diagramCode": "request -> auth -> process -> response",
+  "diagramFormat": "d2",
+  "kind": "diagram"
+}
+
+D2 with styling (use ONLY valid D2 style keywords):
+{
+  "diagramCode": "direction: right\\nserver: Web Server {\\n  style.fill: \\"#2CBD6B\\"\\n  style.stroke: \\"#090a3a\\"\\n  style.border-radius: 8\\n}\\ndatabase: PostgreSQL {\\n  style.fill: \\"#090a3a\\"\\n  style.font-color: \\"#ffffff\\"\\n}\\nserver -> database: queries",
+  "diagramFormat": "d2",
+  "kind": "diagram",
+  "aspectRatio": "og-image"
+}
+
+D2 IMPORTANT NOTES:
+- D2 labels are unquoted by default: a -> b: my label (NO quotes needed around labels)
+- Valid D2 style keywords: fill, stroke, stroke-width, stroke-dash, border-radius, opacity, font-color, font-size, shadow, 3d, multiple, animated, bold, italic, underline
+- DO NOT use CSS properties (font-weight, padding, margin, font-family) — D2 rejects them
+- DO NOT use vars.* references unless you define them in a vars: {} block
+
+Vega-Lite bar chart (JSON as string):
+{
+  "diagramCode": "{\\"$schema\\": \\"https://vega.github.io/schema/vega-lite/v5.json\\", \\"data\\": {\\"values\\": [{\\"category\\": \\"A\\", \\"value\\": 28}, {\\"category\\": \\"B\\", \\"value\\": 55}]}, \\"mark\\": \\"bar\\", \\"encoding\\": {\\"x\\": {\\"field\\": \\"category\\"}, \\"y\\": {\\"field\\": \\"value\\"}}}",
+  "diagramFormat": "vega",
+  "kind": "diagram"
+}
 
 WRONG - DO NOT mix syntax with description in prompt:
 {
@@ -259,6 +348,7 @@ CROPPING OPTIONS:
             }
 
             // Return result for non-success or pending
+            const errorType = classifyError(result.error);
             return {
                 content: [
                     {
@@ -268,17 +358,19 @@ CROPPING OPTIONS:
                             assetId: result.assetId,
                             status: result.status,
                             error: result.error,
+                            errorType,
                         }),
                     },
                 ],
             };
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorType = classifyError(errorMessage);
             return {
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify({ error: `Error generating image: ${errorMessage}` }),
+                        text: JSON.stringify({ error: errorMessage, errorType }),
                     },
                 ],
             };
