@@ -79,7 +79,7 @@ export const querySite = async (site: string, query: string, responseStructure?:
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     const encodedSite = encodeURIComponent(site);
-    const url = `${getBaseUrl()}/api/1.1/query/${encodedSite}`;
+    const url = `${getBaseUrl()}/api/1.1/query/${encodedSite}?app_id=${actualAppId}`;
     const body: any = { query };
     if (responseStructure) {
         body.responseStructure = responseStructure;
