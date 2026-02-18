@@ -12,6 +12,7 @@
     "build": "tsc",
     "postbuild": "tsc-alias",
     "start": "node dist/server.js",
+    "start:http": "node dist/server-http.js",
     "start:stdio": "node dist/server-stdio.js",
     "dev": "ts-node-dev -r tsconfig-paths/register src/server.ts",
     "dev:stdio": "ts-node-dev -r tsconfig-paths/register src/server-stdio.ts",

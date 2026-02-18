@@ -1,0 +1,46 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches:
+      - "main"
+      - "production"
+    paths-ignore:
+      - ".github/workflows/scans.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Github Short SHA
+        run: |
+          echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-7)" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags:
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}_latest,
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}_${{ env.GITHUB_SHA_SHORT }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

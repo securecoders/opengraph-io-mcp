@@ -1,0 +1,11 @@
+node_modules
+src
+dist
+.git
+.github
+.env*
+.vscode
+.cursor
+*.md
+extension
+scripts
