@@ -184,6 +184,7 @@ export const createSession = async (name?: string): Promise<SessionResponse> => 
     
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
+        console.error("Image agent API: Failed to create session ", error);
         throw new Error(`Failed to create session: ${error.error || response.statusText}`);
     }
     
