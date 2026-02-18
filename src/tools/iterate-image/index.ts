@@ -25,6 +25,13 @@ function classifyError(message: string | undefined): "syntax_error" | "request_e
 }
 
 class IterateImageTool extends BaseTool {
+    private appId: string;
+
+    constructor(appId = '') {
+        super();
+        this.appId = appId;
+    }
+
     name = ToolNames.ITERATE_IMAGE;
     description = `Refine, modify, or create variations of an existing generated image.
 
@@ -67,7 +74,7 @@ For diagram iterations:
         try {
             // First verify the session exists
             try {
-                await getSession(args.sessionId);
+                await getSession(args.sessionId, this.appId);
             } catch {
                 return {
                     content: [
@@ -90,12 +97,12 @@ For diagram iterations:
             };
 
             // Call iterate API
-            const result = await iterateImage(args.sessionId, params);
+            const result = await iterateImage(args.sessionId, params, this.appId);
 
             // If succeeded, fetch the image
             if (result.status === "succeeded" && result.assetId) {
                 try {
-                    const { data, contentType } = await getAssetFile(result.assetId);
+                    const { data, contentType } = await getAssetFile(result.assetId, this.appId);
                     const base64Image = data.toString("base64");
 
                     return {

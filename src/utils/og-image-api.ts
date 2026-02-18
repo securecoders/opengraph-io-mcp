@@ -15,10 +15,10 @@ const getImageAgentBaseUrl = (): string => {
 };
 
 /**
- * Get app_id from environment variable
+ * Get app_id from explicit parameter or environment variable
  */
-const getAppId = (): string => {
-    return process.env.APP_ID || process.env.OPENGRAPH_APP_ID || '';
+const getAppId = (app_id?: string): string => {
+    return app_id || process.env.APP_ID || process.env.OPENGRAPH_APP_ID || '';
 };
 
 /**
@@ -34,8 +34,8 @@ const getHeaders = (): Record<string, string> => {
 /**
  * Append app_id as query parameter to URL
  */
-const withAppId = (url: string): string => {
-    const appId = getAppId();
+const withAppId = (url: string, app_id?: string): string => {
+    const appId = getAppId(app_id);
     if (!appId) return url;
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}app_id=${appId}`;
@@ -173,10 +173,10 @@ interface ApiErrorResponse {
 /**
  * Create a new session
  */
-export const createSession = async (name?: string): Promise<SessionResponse> => {
+export const createSession = async (name?: string, app_id?: string): Promise<SessionResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions`), {
+    const response = await fetch(withAppId(`${baseUrl}/sessions`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ name }),
@@ -194,10 +194,10 @@ export const createSession = async (name?: string): Promise<SessionResponse> => 
 /**
  * Generate a new image in a session
  */
-export const generateImage = async (sessionId: string, params: GenerateParams): Promise<GenerateResponse> => {
+export const generateImage = async (sessionId: string, params: GenerateParams, app_id?: string): Promise<GenerateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/generate`), {
+    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/generate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
@@ -214,10 +214,10 @@ export const generateImage = async (sessionId: string, params: GenerateParams): 
 /**
  * Iterate on an existing image
  */
-export const iterateImage = async (sessionId: string, params: IterateParams): Promise<IterateResponse> => {
+export const iterateImage = async (sessionId: string, params: IterateParams, app_id?: string): Promise<IterateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/iterate`), {
+    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/iterate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
@@ -234,10 +234,10 @@ export const iterateImage = async (sessionId: string, params: IterateParams): Pr
 /**
  * Get session details including all assets
  */
-export const getSession = async (sessionId: string): Promise<SessionDetails> => {
+export const getSession = async (sessionId: string, app_id?: string): Promise<SessionDetails> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}`), {
+    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
@@ -253,10 +253,10 @@ export const getSession = async (sessionId: string): Promise<SessionDetails> => 
 /**
  * Get asset file as a Buffer
  */
-export const getAssetFile = async (assetId: string): Promise<{ data: Buffer; contentType: string }> => {
+export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string }> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/assets/${assetId}/file`), {
+    const response = await fetch(withAppId(`${baseUrl}/assets/${assetId}/file`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
@@ -276,11 +276,11 @@ export const getAssetFile = async (assetId: string): Promise<{ data: Buffer; con
 /**
  * Helper: Create session and generate image in one call
  */
-export const createAndGenerate = async (params: GenerateParams, sessionName?: string): Promise<{
+export const createAndGenerate = async (params: GenerateParams, sessionName?: string, app_id?: string): Promise<{
     session: SessionResponse;
     result: GenerateResponse;
 }> => {
-    const session = await createSession(sessionName);
-    const result = await generateImage(session.sessionId, params);
+    const session = await createSession(sessionName, app_id);
+    const result = await generateImage(session.sessionId, params, app_id);
     return { session, result };
 };

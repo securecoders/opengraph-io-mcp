@@ -561,22 +561,22 @@ This will create a transparent PNG icon ready for use in your application.`,
 
             // Image generation tools (use OG_BASE_URL, no appId required in switch)
             case ToolNames.GENERATE_IMAGE:
-                const generate_image_tool = new GenerateImageTool();
+                const generate_image_tool = new GenerateImageTool(appId);
                 validatedArgs = generate_image_tool.inputSchema.parse(args);
                 return generate_image_tool.execute(validatedArgs);
 
             case ToolNames.ITERATE_IMAGE:
-                const iterate_image_tool = new IterateImageTool();
+                const iterate_image_tool = new IterateImageTool(appId);
                 validatedArgs = iterate_image_tool.inputSchema.parse(args);
                 return iterate_image_tool.execute(validatedArgs);
 
             case ToolNames.INSPECT_IMAGE_SESSION:
-                const inspect_session_tool = new InspectImageSessionTool();
+                const inspect_session_tool = new InspectImageSessionTool(appId);
                 validatedArgs = inspect_session_tool.inputSchema.parse(args);
                 return inspect_session_tool.execute(validatedArgs);
 
             case ToolNames.EXPORT_IMAGE_ASSET:
-                const export_asset_tool = new ExportImageAssetTool();
+                const export_asset_tool = new ExportImageAssetTool(appId);
                 validatedArgs = export_asset_tool.inputSchema.parse(args);
                 return export_asset_tool.execute(validatedArgs);
 

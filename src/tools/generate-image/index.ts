@@ -41,6 +41,13 @@ function classifyError(message: string | undefined): "syntax_error" | "request_e
 }
 
 class GenerateImageTool extends BaseTool {
+    private appId: string;
+
+    constructor(appId = '') {
+        super();
+        this.appId = appId;
+    }
+
     name = ToolNames.GENERATE_IMAGE;
     description = `Generate professional, brand-consistent images optimized for web and social media.
 
@@ -296,12 +303,12 @@ CROPPING OPTIONS:
             };
 
             // Create session and generate
-            const { session, result } = await createAndGenerate(params);
+            const { session, result } = await createAndGenerate(params, undefined, this.appId);
 
             // If succeeded, fetch the image and return it
             if (result.status === "succeeded" && result.assetId) {
                 try {
-                    const { data, contentType } = await getAssetFile(result.assetId);
+                    const { data, contentType } = await getAssetFile(result.assetId, this.appId);
                     const base64Image = data.toString("base64");
 
                     return {

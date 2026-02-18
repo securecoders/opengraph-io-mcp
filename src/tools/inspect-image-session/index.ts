@@ -5,6 +5,13 @@ import { getSession } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class InspectImageSessionTool extends BaseTool {
+    private appId: string;
+
+    constructor(appId = '') {
+        super();
+        this.appId = appId;
+    }
+
     name = ToolNames.INSPECT_IMAGE_SESSION;
     description = `Retrieve detailed information about an image generation session and all its assets.
 
@@ -37,7 +44,7 @@ Use this to:
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         try {
-            const session = await getSession(args.sessionId);
+            const session = await getSession(args.sessionId, this.appId);
 
             // Format the response
             const formattedAssets = session.assets.map((asset) => ({

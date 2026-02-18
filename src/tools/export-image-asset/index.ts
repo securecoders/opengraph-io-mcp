@@ -41,6 +41,13 @@ function validateDestinationPath(destinationPath: string): { valid: boolean; err
 }
 
 class ExportImageAssetTool extends BaseTool {
+    private appId: string;
+
+    constructor(appId = '') {
+        super();
+        this.appId = appId;
+    }
+
     name = ToolNames.EXPORT_IMAGE_ASSET;
     description = `Export a generated image asset to a specific file path on the local filesystem.
 
@@ -115,7 +122,7 @@ After generating an image with generateImage, use the sessionId and assetId to e
 
             // Verify session exists
             try {
-                await getSession(args.sessionId);
+                await getSession(args.sessionId, this.appId);
             } catch {
                 return {
                     content: [
@@ -131,7 +138,7 @@ After generating an image with generateImage, use the sessionId and assetId to e
             }
 
             // Fetch the asset file
-            const { data, contentType } = await getAssetFile(args.assetId);
+            const { data, contentType } = await getAssetFile(args.assetId, this.appId);
 
             // Create parent directories if needed
             const parentDir = path.dirname(destinationPath);
