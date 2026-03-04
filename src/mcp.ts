@@ -1,4 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
     CallToolRequestSchema,
     CompleteRequestSchema,
@@ -48,12 +48,13 @@ enum PromptName {
 }
 
 export const createServer = () => {
-    const server = new Server(
+    const mcpServer = new McpServer(
         {
             name: "og-mcp-server",
             version: "1.4.0",
+            homepage: "https://opengraph.io",
             websiteUrl: "https://opengraph.io",
-        },
+        } as any,
         {
             capabilities: {
                 prompts: {},
@@ -64,6 +65,7 @@ export const createServer = () => {
             },
         }
     );
+    const server = mcpServer.server;
 
     let subscriptions: Set<string> = new Set();
     let subsUpdateInterval: NodeJS.Timeout | undefined;
