@@ -14,6 +14,13 @@ class GetOgQueryTool extends BaseTool {
 
     name = ToolNames.GET_OG_QUERY;
     description = "Query a site with a custom question and response structure using the OG Query endpoint.";
+    annotations = {
+        title: "Query Website Content",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
 
     inputSchema = z.object({
         site: z.string().url().describe("Site to request (full URL)"),

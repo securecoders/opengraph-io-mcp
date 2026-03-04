@@ -44,6 +44,13 @@ class ExportImageAssetTool extends BaseTool {
     }
 
     name = ToolNames.EXPORT_IMAGE_ASSET;
+    annotations = {
+        title: "Export Image Asset",
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
     description = `Export a generated image asset by session and asset ID.
 
 Returns the image inline as base64 along with metadata (format, dimensions, size).

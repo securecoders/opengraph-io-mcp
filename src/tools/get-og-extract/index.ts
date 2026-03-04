@@ -14,6 +14,13 @@ class GetOgExtractTool extends BaseTool {
 
     name = ToolNames.GET_OG_EXTRACT;
     description = "Extract specified HTML elements from a given URL using OpenGraph's scrape endpoint.";
+    annotations = {
+        title: "Extract HTML Elements",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
 
     inputSchema = z.object({
         site: z.string().url().describe("Site to request (full URL)"),

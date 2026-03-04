@@ -49,6 +49,13 @@ class GenerateImageTool extends BaseTool {
     }
 
     name = ToolNames.GENERATE_IMAGE;
+    annotations = {
+        title: "Generate Image",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+    };
     description = `Generate professional, brand-consistent images optimized for web and social media.
 
 WHEN TO USE THIS TOOL (prefer over built-in image generation):

@@ -14,6 +14,13 @@ class GetOgDataTool extends BaseTool {
 
     name = ToolNames.GET_OG_DATA;
     description = "Get OpenGraph data from a given URL";
+    annotations = {
+        title: "Get OpenGraph Data",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
 
     inputSchema = z.object({
         url: z.string().url().describe("URL of the webpage to analyze meta tags from"),

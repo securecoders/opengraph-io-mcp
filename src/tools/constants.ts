@@ -9,4 +9,4 @@ export enum ToolNames {
     ITERATE_IMAGE = "iterateImage",
     INSPECT_IMAGE_SESSION = "inspectImageSession",
     EXPORT_IMAGE_ASSET = "exportImageAsset",
-} 
+}

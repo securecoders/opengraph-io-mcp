@@ -14,6 +14,13 @@ class GetOgScrapeDataTool extends BaseTool {
 
     name = ToolNames.GET_OG_SCRAPE_DATA;
     description = "Scrape data from a given URL using OpenGraph's scrape endpoint";
+    annotations = {
+        title: "Scrape Website Data",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
 
     inputSchema = z.object({
         url: z.string().url().describe("URL of the webpage to scrape data from"),

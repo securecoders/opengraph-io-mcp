@@ -13,6 +13,13 @@ class InspectImageSessionTool extends BaseTool {
     }
 
     name = ToolNames.INSPECT_IMAGE_SESSION;
+    annotations = {
+        title: "Inspect Image Session",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
     description = `Retrieve detailed information about an image generation session and all its assets.
 
 Returns:

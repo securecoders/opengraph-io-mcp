@@ -33,6 +33,13 @@ class IterateImageTool extends BaseTool {
     }
 
     name = ToolNames.ITERATE_IMAGE;
+    annotations = {
+        title: "Iterate on Image",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+    };
     description = `Refine, modify, or create variations of an existing generated image.
 
 Use this to:

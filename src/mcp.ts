@@ -52,6 +52,7 @@ export const createServer = () => {
         {
             name: "og-mcp-server",
             version: "1.0.0",
+            websiteUrl: "https://opengraph.io",
         },
         {
             capabilities: {

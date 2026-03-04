@@ -14,6 +14,13 @@ class GetOgScreenshotTool extends BaseTool {
 
     name = ToolNames.GET_OG_SCREENSHOT;
     description = "Get a screenshot of a given URL using OpenGraph's screenshot endpoint";
+    annotations = {
+        title: "Take Website Screenshot",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+    };
 
     inputSchema = z.object({
         url: z.string().url().describe("URL of the webpage to screenshot"),
