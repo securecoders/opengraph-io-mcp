@@ -225,7 +225,7 @@ Create images from natural language prompts or diagram code.
 
 ```
 // Generate a social card
-generateImage({
+generate_image({
   prompt: "A modern tech startup hero image with abstract geometric shapes",
   kind: "social-card",
   aspectRatio: "og-image",
@@ -234,7 +234,7 @@ generateImage({
 })
 
 // Generate a diagram from Mermaid syntax
-generateImage({
+generate_image({
   prompt: "graph TD; A[User] --> B[API]; B --> C[Database]",
   kind: "diagram",
   diagramSyntax: "mermaid",
@@ -254,7 +254,7 @@ Refine or modify an existing generated image.
 
 **Example:**
 ```
-iterateImage({
+iterate_image({
   sessionId: "uuid-from-generate",
   assetId: "uuid-from-generate",
   prompt: "Change the primary color to #0033A0 and add a subtle drop shadow"
@@ -272,7 +272,7 @@ Review session details and find asset IDs for iteration.
 
 **Example:**
 ```
-inspectImageSession({
+inspect_image_session({
   sessionId: "uuid-from-generate"
 })
 ```
@@ -288,7 +288,7 @@ Save generated images to your local filesystem.
 
 **Example:**
 ```
-exportImageAsset({
+export_image_asset({
   sessionId: "uuid-from-generate",
   assetId: "uuid-from-generate",
   destinationPath: "/Users/me/project/images/hero.png",

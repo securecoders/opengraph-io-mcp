@@ -52,8 +52,8 @@ SECURITY:
 - Parent directories will be created if they don't exist
 
 USAGE:
-After generating an image with generateImage, use the sessionId and assetId to export:
-  exportImageAsset(sessionId="...", assetId="...", destinationPath="/Users/me/project/images/logo.png")`;
+After generating an image with generate_image, use the sessionId and assetId to export:
+  export_image_asset(sessionId="...", assetId="...", destinationPath="/Users/me/project/images/logo.png")`;
 
     inputSchema = z.object({
         sessionId: z.string().uuid().describe("The session UUID containing the asset"),

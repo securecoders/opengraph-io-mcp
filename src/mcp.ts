@@ -123,7 +123,7 @@ export const createServer = () => {
                 {
                     uriTemplate: "asset://{sessionId}/{assetId}",
                     name: "Generated Image Asset",
-                    description: "Access generated image assets by session and asset ID. Use inspectImageSession to find asset IDs.",
+                    description: "Access generated image assets by session and asset ID. Use inspect_image_session to find asset IDs.",
                 },
             ],
         };
@@ -290,7 +290,7 @@ Help me outline the diagram structure:
 - **premium**: Full AI polish - stunning professional artwork (best for hero images, may need iteration)
 
 ## Step 4: Generate
-Once we have the context, generate the diagram using the \`generateImage\` tool with:
+Once we have the context, generate the diagram using the \`generate_image\` tool with:
 - kind: "diagram"
 - brandColors: [my colors]
 - stylePreferences: [my style]
@@ -300,7 +300,7 @@ Once we have the context, generate the diagram using the \`generateImage\` tool 
 ## Tips for Best Results
 - For complex diagrams, start with 'standard' output style
 - If the result has clipping or duplicates, regenerate with explicit instructions
-- Use the iterateImage tool for refinements rather than regenerating from scratch`,
+- Use the iterate_image tool for refinements rather than regenerating from scratch`,
                         },
                     },
                 ],
@@ -323,7 +323,7 @@ Once we have the context, generate the diagram using the \`generateImage\` tool 
                             text: `I want to iterate on asset ${assetId} in session ${sessionId}.${issueContext}
 
 ## First: Inspect the Asset
-Use \`inspectImageSession(sessionId=${sessionId})\` to review:
+Use \`inspect_image_session(sessionId=${sessionId})\` to review:
 - What toolchain was used (mermaid, d2, openai, gemini)?
 - What was the original prompt?
 - What metadata is stored (diagram source, colors used)?
@@ -341,7 +341,7 @@ Use \`inspectImageSession(sessionId=${sessionId})\` to review:
 - Consider using 'standard' for accuracy
 
 ### Wrong Colors / Style
-- Use \`iterateImage\` with specific color instructions: "change primary color to #0033A0"
+- Use \`iterate_image\` with specific color instructions: "change primary color to #0033A0"
 - Reference the original brandColors if they were provided
 
 ### Text Readability Issues
@@ -355,7 +355,7 @@ Use \`inspectImageSession(sessionId=${sessionId})\` to review:
 
 ## Using the Iterate Tool
 \`\`\`
-iterateImage({
+iterate_image({
   sessionId: "${sessionId}",
   assetId: "${assetId}",
   prompt: "Specific changes you want..."
@@ -405,7 +405,7 @@ Before creating any assets, define:
 ### Step 2: Create the First Asset
 Generate the first asset with full context:
 \`\`\`
-generateImage({
+generate_image({
   prompt: "[first asset description]",
   kind: "${kind}",
   brandColors: ["#primary", "#secondary"],
@@ -418,7 +418,7 @@ generateImage({
 ### Step 3: Use First Asset as Reference
 Once you're happy with the first asset, use its ID as a reference for consistency:
 \`\`\`
-generateImage({
+generate_image({
   prompt: "[second asset description]",
   kind: "${kind}",
   referenceAssetId: "[first asset ID]",
@@ -430,7 +430,7 @@ generateImage({
 
 ### Step 4: Iterate for Consistency
 If an asset doesn't match the set:
-- Use \`iterateImage\` to adjust colors/style
+- Use \`iterate_image\` to adjust colors/style
 - Reference the prompt: "match the style of asset [ID]"
 - Keep the same brandColors and stylePreferences
 
@@ -484,7 +484,7 @@ What ${assetType} do you need to create? Let's start with defining your style gu
 
 Use these settings for best results:
 \`\`\`
-generateImage({
+generate_image({
   prompt: "${iconDescription} icon, ${styleDesc}, centered on canvas, professional quality",
   kind: "icon",
   transparent: true,
