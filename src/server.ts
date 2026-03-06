@@ -1,6 +1,6 @@
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
-import { createServer } from "./mcp";
+import { createServer, SERVER_CARD } from "./mcp";
 import dotenv from "dotenv";
 import { setAppId, deleteAppId } from "./utils/sessionIdToAppId";
 
@@ -11,6 +11,11 @@ const app = express();
 const { server, cleanup } = createServer();
 
 let transport: SSEServerTransport;
+
+// Static server card for registry discovery (Smithery, etc.)
+app.get("/.well-known/mcp/server-card.json", (_req, res) => {
+  res.json(SERVER_CARD);
+});
 
 app.get("/sse", async (_, res) => {
   // console.log("Received connection");

@@ -47,11 +47,36 @@ enum PromptName {
     QUICK_ICON = "quick-icon",
 }
 
+/**
+ * Static MCP Server Card for /.well-known/mcp/server-card.json discovery.
+ * Allows registries (Smithery, etc.) to read metadata without a full initialize handshake.
+ */
+export const SERVER_CARD = {
+    serverInfo: {
+        name: "og-mcp-server",
+        title: "OpenGraph.io MCP Server",
+        version: "2.0.0",
+    },
+    description: "MCP server for OpenGraph.io — fetch OG data, screenshots, scrape HTML, extract elements, query pages with AI, and generate images (diagrams, icons, social cards, QR codes).",
+    documentationUrl: "https://www.opengraph.io/documentation",
+    capabilities: {
+        prompts: {},
+        resources: { subscribe: true },
+        tools: {},
+        logging: {},
+        completions: {},
+    },
+    tools: "dynamic" as const,
+    prompts: "dynamic" as const,
+    resources: "dynamic" as const,
+};
+
 export const createServer = () => {
     const server = new Server(
         {
             name: "og-mcp-server",
-            version: "1.0.0",
+            version: "2.0.0",
+            websiteUrl: "https://opengraph.io",
         },
         {
             capabilities: {
