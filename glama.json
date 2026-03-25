@@ -1,0 +1,10 @@
+{
+    "$schema": "https://glama.ai/mcp/schemas/server.json",
+    "maintainers": [
+      "cwooley",
+      "primeobsession",
+      "BlArcher3127",
+      "JulianAR97",
+      "nhalstead"
+    ]
+  }
