@@ -314,6 +314,10 @@ The og-mcp server acts as a bridge between AI clients (like Claude or other LLMs
 
 This abstraction prevents exposing API keys directly to the AI while providing full access to OpenGraph.io capabilities.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/securecoders-opengraph-io-mcp).
+
 ## Setup and Running
 
 1. Clone this repository
