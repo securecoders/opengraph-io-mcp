@@ -370,20 +370,6 @@ This method runs a web server that can be accessed over HTTP and uses SSE for st
 npm start
 ```
 
-
-### HTTP/SSE Transport (Alternative)
-
-If you prefer running a persistent server instead of stdio:
-
-```bash
-npm start
-```
-
-Then configure your client to connect to:
-```
-http://localhost:3010/sse?app_id=YOUR_OPENGRAPH_APP_ID
-```
-
 ## Troubleshooting
 
 - If tools aren't showing up, check that the server is running and the URL is correctly configured in Cursor
