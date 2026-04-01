@@ -37,7 +37,7 @@ For Claude Desktop users, you can also download the `.mcpb` extension for one-cl
 
 ## Client Configuration
 
-All configurations below use stdio transport (recommended). Replace `YOUR_OPENGRAPH_APP_ID` with your [OpenGraph.io App ID](https://www.opengraph.io/).
+All configurations below use the hosted HTTPS transport (recommended). Replace `YOUR_OPENGRAPH_APP_ID` with your [OpenGraph.io App ID](https://www.opengraph.io/). No local installation or `npx` required — just point your client at the hosted URL.
 
 ### Claude Desktop
 
@@ -49,10 +49,9 @@ Config location:
 {
   "mcpServers": {
     "opengraph": {
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
       }
     }
   }
@@ -64,11 +63,7 @@ Config location:
 One-command installation:
 
 ```bash
-# macOS/Linux
-claude mcp add --transport stdio --env APP_ID=YOUR_OPENGRAPH_APP_ID opengraph -- npx -y opengraph-io-mcp
-
-# Windows (requires cmd /c wrapper)
-claude mcp add --transport stdio --env APP_ID=YOUR_OPENGRAPH_APP_ID opengraph -- cmd /c npx -y opengraph-io-mcp
+claude mcp add --transport http --header "x-app-id: YOUR_OPENGRAPH_APP_ID" opengraph https://mcp.opengraph.io/mcp
 ```
 
 ### Cursor
@@ -79,10 +74,9 @@ Config location: `~/.cursor/mcp.json`
 {
   "mcpServers": {
     "opengraph": {
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
       }
     }
   }
@@ -107,11 +101,10 @@ VS Code supports input prompts for secure credential handling:
   ],
   "servers": {
     "opengraph": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "${input:opengraph-app-id}"
+      "type": "http",
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "${input:opengraph-app-id}"
       }
     }
   }
@@ -126,10 +119,9 @@ Config location: `~/.codeium/windsurf/mcp_config.json`
 {
   "mcpServers": {
     "opengraph": {
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
       }
     }
   }
@@ -144,10 +136,9 @@ Add to your JetBrains AI Assistant MCP configuration:
 {
   "mcpServers": {
     "opengraph": {
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
       }
     }
   }
@@ -164,10 +155,10 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 {
   "context_servers": {
     "opengraph": {
-      "command": "npx",
-      "args": ["-y", "opengraph-io-mcp"],
-      "env": {
-        "APP_ID": "YOUR_OPENGRAPH_APP_ID"
+      "transport": "http",
+      "url": "https://mcp.opengraph.io/mcp",
+      "headers": {
+        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
       }
     }
   }
