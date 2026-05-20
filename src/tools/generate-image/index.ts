@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { createAndGenerate, getAssetFile, type GenerateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope, ErrorCode } from "@/tools/envelope";
 
 /**
  * Classify an error message into a type to help AI assistants decide what action to take.
@@ -380,14 +381,17 @@ CROPPING OPTIONS:
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const errorType = classifyError(errorMessage);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ error: errorMessage, errorType }),
-                    },
-                ],
-            };
+            const code =
+                errorType === "syntax_error"
+                    ? ErrorCode.INVALID_INPUT
+                    : errorType === "request_error"
+                        ? ErrorCode.INVALID_INPUT
+                        : ErrorCode.UPSTREAM_ERROR;
+            return catchToEnvelope(error, {
+                tool: this.name,
+                code,
+                metadata: { errorType },
+            });
         }
     }
 }

@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getAssetFile, getSession } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope, errorEnvelope, ErrorCode } from "@/tools/envelope";
 import * as fs from "fs/promises";
 import * as path from "path";
 
@@ -85,17 +86,11 @@ To save to disk (local/stdio only):
             try {
                 await getSession(args.sessionId, this.appId);
             } catch {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                success: false,
-                                error: `Session ${args.sessionId} not found`,
-                            }),
-                        },
-                    ],
-                };
+                return errorEnvelope({
+                    code: ErrorCode.NOT_FOUND,
+                    message: `Session ${args.sessionId} not found`,
+                    recovery_hint: "Verify the sessionId from the previous generateImage call.",
+                }, { tool: this.name });
             }
 
             const { data, contentType } = await getAssetFile(args.assetId, this.appId);
@@ -157,18 +152,7 @@ To save to disk (local/stdio only):
                 ],
             };
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            success: false,
-                            error: `Error exporting asset: ${errorMessage}`,
-                        }),
-                    },
-                ],
-            };
+            return catchToEnvelope(error, { tool: this.name, prefix: "Error exporting asset" });
         }
     }
 }

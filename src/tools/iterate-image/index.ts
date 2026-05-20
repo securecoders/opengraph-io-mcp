@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { iterateImage, getAssetFile, getSession, type IterateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope, errorEnvelope, ErrorCode } from "@/tools/envelope";
 
 /**
  * Classify an error message into a type to help AI assistants decide what action to take.
@@ -83,14 +84,11 @@ For diagram iterations:
             try {
                 await getSession(args.sessionId, this.appId);
             } catch {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({ error: `Session ${args.sessionId} not found` }),
-                        },
-                    ],
-                };
+                return errorEnvelope({
+                    code: ErrorCode.NOT_FOUND,
+                    message: `Session ${args.sessionId} not found`,
+                    recovery_hint: "Verify the sessionId from the previous generateImage call.",
+                }, { tool: this.name });
             }
 
             // Build params
@@ -176,14 +174,17 @@ For diagram iterations:
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const errorType = classifyError(errorMessage);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ error: errorMessage, errorType }),
-                    },
-                ],
-            };
+            const code =
+                errorType === "syntax_error"
+                    ? ErrorCode.INVALID_INPUT
+                    : errorType === "request_error"
+                        ? ErrorCode.INVALID_INPUT
+                        : ErrorCode.UPSTREAM_ERROR;
+            return catchToEnvelope(error, {
+                tool: this.name,
+                code,
+                metadata: { errorType },
+            });
         }
     }
 }

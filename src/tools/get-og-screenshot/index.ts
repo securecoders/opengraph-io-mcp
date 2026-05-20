@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getScreenshotUrl } from "@/utils/og";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope } from "@/tools/envelope";
 
 class GetOgScreenshotTool extends BaseTool {
     private appId: string;
@@ -60,15 +61,7 @@ class GetOgScreenshotTool extends BaseTool {
                 ]
             };
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                content: [
-                    { 
-                        type: "text", 
-                        text: JSON.stringify({ error: `Error getting screenshot: ${errorMessage}` })
-                    }
-                ]
-            };
+            return catchToEnvelope(error, { tool: this.name, prefix: "Error getting screenshot" });
         }
     }
 }

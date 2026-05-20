@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getSession } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope } from "@/tools/envelope";
 
 class InspectImageSessionTool extends BaseTool {
     private appId: string;
@@ -87,15 +88,7 @@ Use this to:
                 ],
             };
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ error: `Error inspecting session: ${errorMessage}` }),
-                    },
-                ],
-            };
+            return catchToEnvelope(error, { tool: this.name, prefix: "Error inspecting session" });
         }
     }
 }

@@ -26,6 +26,8 @@ import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
 import InspectImageSessionTool from "@/tools/inspect-image-session";
 import ExportImageAssetTool from "@/tools/export-image-asset";
+import ResearchUrlTool from "@/tools/research-url";
+import ListCapabilitiesTool from "@/tools/list-capabilities";
 import { getAppId } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
 
@@ -51,7 +53,7 @@ export const createServer = () => {
     const mcpServer = new McpServer(
         {
             name: "og-mcp-server",
-            version: "1.4.0",
+            version: "1.5.0",
             homepage: "https://opengraph.io",
             websiteUrl: "https://opengraph.io",
         } as any,
@@ -581,6 +583,20 @@ This will create a transparent PNG icon ready for use in your application.`,
                 const export_asset_tool = new ExportImageAssetTool(appId, isLocal);
                 validatedArgs = export_asset_tool.inputSchema.parse(args);
                 return export_asset_tool.execute(validatedArgs);
+
+            // Agent-first composite + meta tools (1.5.0)
+            case ToolNames.RESEARCH_URL:
+                if (isSSETransport && !appId) {
+                    throw new Error("Could not find App ID for session.");
+                }
+                const research_url_tool = new ResearchUrlTool(appId);
+                validatedArgs = research_url_tool.inputSchema.parse(args);
+                return research_url_tool.execute(validatedArgs);
+
+            case ToolNames.LIST_CAPABILITIES:
+                const list_capabilities_tool = new ListCapabilitiesTool();
+                validatedArgs = list_capabilities_tool.inputSchema.parse(args);
+                return list_capabilities_tool.execute(validatedArgs);
 
             default:
                 throw new Error(`Unknown tool: ${name}`);
