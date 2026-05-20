@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getSiteOgData } from "@/utils/og";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope } from "@/tools/envelope";
 
 class GetOgDataTool extends BaseTool {
     private appId: string;
@@ -57,15 +58,7 @@ class GetOgDataTool extends BaseTool {
                 ]
             };
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                content: [
-                    { 
-                        type: "text", 
-                        text: JSON.stringify({ error: `Error fetching OG Data: ${errorMessage}` })
-                    }
-                ]
-            };
+            return catchToEnvelope(error, { tool: this.name, prefix: "Error fetching OG Data" });
         }
     }
 }

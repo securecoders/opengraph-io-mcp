@@ -3,6 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { extractHtmlElements } from "@/utils/og";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { catchToEnvelope } from "@/tools/envelope";
 
 class GetOgExtractTool extends BaseTool {
     private appId: string;
@@ -51,15 +52,7 @@ class GetOgExtractTool extends BaseTool {
                 ]
             };
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ error: `Error extracting HTML elements: ${errorMessage}` })
-                    }
-                ]
-            };
+            return catchToEnvelope(error, { tool: this.name, prefix: "Error extracting HTML elements" });
         }
     }
 }

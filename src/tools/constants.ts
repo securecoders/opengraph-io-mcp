@@ -9,4 +9,7 @@ export enum ToolNames {
     ITERATE_IMAGE = "iterateImage",
     INSPECT_IMAGE_SESSION = "inspectImageSession",
     EXPORT_IMAGE_ASSET = "exportImageAsset",
+    // Agent-first composite + meta tools (1.5.0)
+    RESEARCH_URL = "researchUrl",
+    LIST_CAPABILITIES = "listCapabilities",
 }
