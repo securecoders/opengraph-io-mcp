@@ -169,13 +169,18 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 
 ### OpenGraph.io Data Tools
 
-| Tool Name | OpenGraph.io API Endpoint | Description | Documentation |
-|-----------|---------------------------|-------------|---------------|
-| **Get OG Data** | `/api/1.1/site/<URL>` | Extracts Open Graph data from a URL | [OpenGraph.io Docs](https://www.opengraph.io/documentation#get-open-graph) |
-| **Get OG Scrape Data** | `/api/1.1/scrape/<URL>` | Scrapes data from a URL using OpenGraph's scrape endpoint | [OpenGraph.io Docs](https://www.opengraph.io/documentation#scrape-site) |
-| **Get OG Screenshot** | `/api/1.1/screenshot/<URL>` | Gets a screenshot of a webpage using OpenGraph's screenshot endpoint | [OpenGraph.io Docs](https://www.opengraph.io/documentation#screenshot-site) |
-| **Get OG Query** | `/api/1.1/query/<URL>` | Query a site with a custom question and optional response structure | [OpenGraph.io Docs](https://www.opengraph.io/documentation#query-site) |
-| **Get OG Extract** | `/api/1.1/extract/<URL>` | Extract specific HTML elements (h1, p, etc.) from a webpage | [OpenGraph.io Docs](https://www.opengraph.io/documentation#extract-site) |
+All scraping/metadata tools default to the **v3** API which enables `auto_render`, `auto_proxy`, and `retry` by default for higher success rates on complex pages. The `query` and `extract` tools use v1.1 (see notes).
+
+| Tool Name | API Endpoint | Description | Documentation |
+|-----------|--------------|-------------|---------------|
+| **Get OG Data** | `/api/3.0/site/<URL>` | Fetch Open Graph metadata, HTML-inferred tags, and hybrid social preview data. Supports `use_ai`, `ai_sanitize`, load-more, proxy/retry, and all v3 smart defaults. | [Docs](https://www.opengraph.io/documentation#get-open-graph) |
+| **Get OG Scrape Data** | `/api/3.0/scrape/<URL>` | Scrape raw HTML with full v3 rendering options including scroll-to-bottom, load-more clicks, and AI sanitization. | [Docs](https://www.opengraph.io/documentation#scrape-site) |
+| **Get OG Screenshot** | `/api/3.0/screenshot/<URL>` | Capture a screenshot. Supports `full_page`, `dark_mode`, `capture_delay`, `navigationTimeout`, `hideSelectors`, and custom viewport dimensions. | [Docs](https://www.opengraph.io/documentation#screenshot-site) |
+| **Get OG Query** | `/api/1.1/query/<URL>` | Ask a natural-language question about a page's content. Uses v1.1 (100–200 credits/request) until billing path is updated for v3. | [Docs](https://www.opengraph.io/documentation#query-site) |
+| **Get OG Extract** | `/api/1.1/extract/<URL>` | Extract specific HTML elements (h1, p, a, img, etc.) by tag name. Stays on v1.1 — no v3 GET route exists for this endpoint. | [Docs](https://www.opengraph.io/documentation#extract-site) |
+| **Get OG Markdown** | `/api/3.0/markdown/<URL>` | Convert any URL's HTML to clean Markdown. Strips nav/ads by default (`only_main_content: true`). Supports `include_tags`/`exclude_tags` selectors. **Note:** JS-heavy/SPA pages require `full_render: true` — v3 `auto_render` does not apply to this endpoint. | [Docs](https://www.opengraph.io/documentation) |
+
+**Language detection:** All tools send `accept_lang: auto` by default, which mirrors the request's `Accept-Language` header. Pass an explicit BCP 47 tag (e.g. `en-US`, `fr`) to override.
 
 ### Image Generation Tools
 
