@@ -4,6 +4,7 @@ export enum ToolNames {
     GET_OG_SCREENSHOT = "getOgScreenshot",
     GET_OG_QUERY = "getOgQuery",
     GET_OG_EXTRACT = "getOgExtract",
+    GET_OG_MARKDOWN = "getOgMarkdown",
     // Image generation tools
     GENERATE_IMAGE = "generateImage",
     ITERATE_IMAGE = "iterateImage",
