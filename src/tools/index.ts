@@ -4,6 +4,7 @@ import GetOgScrapeDataTool from "@/tools/get-og-scrape-data";
 import GetOgScreenshotTool from "@/tools/get-og-screenshot";
 import GetOgQueryTool from "@/tools/get-og-query";
 import GetOgExtractTool from "@/tools/get-og-extract";
+import GetOgMarkdownTool from "@/tools/get-og-markdown";
 // Image generation tools
 import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
@@ -17,6 +18,7 @@ const tools: Tool[] = [
     new GetOgScreenshotTool().toToolType(),
     new GetOgQueryTool().toToolType(),
     new GetOgExtractTool().toToolType(),
+    new GetOgMarkdownTool().toToolType(),
     // Image generation tools
     new GenerateImageTool().toToolType(),
     new IterateImageTool().toToolType(),
