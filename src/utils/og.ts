@@ -26,8 +26,8 @@ export const API_VERSIONS = {
     scrape:     '3.0',
     screenshot: '3.0',
     markdown:   '3.0',
-    query:      '1.1',   // billing path check in requestCount.js is v1.1-only
-    extract:    '1.1',   // no v3 GET route; only POST /api/3.0/extract exists
+    query:      '3.0',
+    extract:    '3.0',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -90,6 +90,17 @@ export interface ScreenshotOptions extends CommonOgOptions {
 
 export interface QueryOptions extends CommonOgOptions {
     modelSize?: string;
+}
+
+export interface ExtractOptions extends CommonOgOptions {
+    /**
+     * CSS selector → label map for structured extraction.
+     * Keys are output labels; values are CSS selectors.
+     * When provided, the response contains a `data` object keyed by label
+     * rather than a flat array of matched elements.
+     * Example: { "title": "article h1", "price": ".price-box .price" }
+     */
+    selectors?: Record<string, string>;
 }
 
 export interface MarkdownOptions extends CommonOgOptions {
@@ -238,25 +249,51 @@ export const querySite = async (
     return response.json();
 };
 
-/** Extract HTML elements by tag name via /api/1.1/extract (GET). */
+/**
+ * Extract HTML elements or structured CSS-selector data via /api/3.0/extract (POST).
+ *
+ * Pass `html_elements` for tag-name-based extraction (e.g. ['h1','p','a']).
+ * Pass `options.selectors` for CSS-selector-based structured extraction
+ * (e.g. { title: 'article h1', price: '.price' }) — returns a keyed `data` object.
+ * Fetch/proxy/cache options go in the query string; content params go in the POST body.
+ */
 export const extractHtmlElements = async (
     url: string,
     html_elements: string[],
     app_id?: string,
-    options: CommonOgOptions = {},
+    options: ExtractOptions = {},
 ): Promise<any> => {
     const actualAppId = getAppId(app_id);
     if (!actualAppId) {
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
-    const qs = buildQueryParams(
-        { ...options, html_elements: html_elements.join(",") },
-        actualAppId,
-    );
+
+    // Destructure selectors out so they don't end up in query params
+    const { selectors, ...fetchOptions } = options;
+    const qs = buildQueryParams(fetchOptions, actualAppId);
+
+    const body: Record<string, any> = {
+        site: url,
+        html_elements: html_elements.length > 0 ? html_elements.join(',') : 'title,h1,h2,h3,h4,h5,p',
+    };
+    if (selectors && Object.keys(selectors).length > 0) {
+        body.selectors = selectors;
+    }
+
     const response = await fetch(
-        `${getBaseUrl()}/api/${API_VERSIONS.extract}/extract/${encodeURIComponent(url)}?${qs}`,
-        { headers: { "Referrer": "mcp" } },
+        `${getBaseUrl()}/api/${API_VERSIONS.extract}/extract?${qs}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Referrer': 'mcp' },
+            body: JSON.stringify(body),
+        },
     );
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Extract API request failed: ${response.status} ${response.statusText}${err ? ` — ${err}` : ''}`);
+    }
+
     return response.json();
 };
 

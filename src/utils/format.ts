@@ -247,27 +247,45 @@ export function formatQuery(url: string, question: string, result: any): FormatR
 // ---------------------------------------------------------------------------
 
 export interface ExtractPayload {
-    tags?:           Array<{ tag: string; innerText: string; position?: number }>;
+    /** Tag-name based results (v1.1 or v3 html_elements without selectors) */
+    tags?:            Array<{ tag: string; innerText: string; position?: number }>;
     concatenatedText?: string;
-    data?:           Record<string, any>;
-    ai_safety?:      any;
+    /** Structured selector-based results (v3 selectors param) */
+    data?:            Record<string, any>;
+    ai_safety?:       any;
 }
 
 export function formatExtract(url: string, payload: ExtractPayload): FormatResult {
     const { tags = [], concatenatedText, data } = payload;
     const domain = domainFromUrl(url);
 
-    const countLine = `${tags.length} element${tags.length !== 1 ? 's' : ''} extracted`;
-
-    // Build a compact Markdown table (truncate long cell text)
     const tableRows: string[] = [];
-    if (tags.length > 0) {
+    let countLine = '';
+
+    if (data && Object.keys(data).length > 0) {
+        // v3 selector-based: render as Label → Value table
+        const entries = Object.entries(data);
+        countLine = `${entries.length} field${entries.length !== 1 ? 's' : ''} extracted`;
+        tableRows.push('| Label | Value |');
+        tableRows.push('|-------|-------|');
+        for (const [label, value] of entries) {
+            const cell = truncate(
+                (Array.isArray(value) ? value.join(', ') : String(value ?? '')).replace(/\n/g, ' ').trim(),
+                120,
+            );
+            tableRows.push(`| **${label}** | ${cell} |`);
+        }
+    } else if (tags.length > 0) {
+        // v1.1 or v3 tag-based: render Element → Text table
+        countLine = `${tags.length} element${tags.length !== 1 ? 's' : ''} extracted`;
         tableRows.push('| Element | Text |');
         tableRows.push('|---------|------|');
         for (const { tag: t, innerText } of tags) {
-            const cell = truncate(innerText.replace(/\n/g, ' ').trim(), 80);
+            const cell = truncate(innerText.replace(/\n/g, ' ').trim(), 120);
             tableRows.push(`| ${tag(t)} | ${cell} |`);
         }
+    } else {
+        countLine = '0 elements extracted';
     }
 
     const markdown = truncate(
