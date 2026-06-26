@@ -21,6 +21,7 @@ import GetOgScrapeDataTool from "@/tools/get-og-scrape-data";
 import GetOgScreenshotTool from "@/tools/get-og-screenshot";
 import GetOgQueryTool from "@/tools/get-og-query";
 import GetOgExtractTool from "@/tools/get-og-extract";
+import GetOgMarkdownTool from "@/tools/get-og-markdown";
 // Image generation tools
 import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
@@ -560,6 +561,14 @@ This will create a transparent PNG icon ready for use in your application.`,
                 const og_extract_tool = new GetOgExtractTool(appId);
                 validatedArgs = og_extract_tool.inputSchema.parse(args);
                 return og_extract_tool.execute(validatedArgs);
+
+            case ToolNames.GET_OG_MARKDOWN:
+                if (isSSETransport && !appId) {
+                    throw new Error("Could not find App ID for session.");
+                }
+                const og_markdown_tool = new GetOgMarkdownTool(appId);
+                validatedArgs = og_markdown_tool.inputSchema.parse(args);
+                return og_markdown_tool.execute(validatedArgs);
 
             // Image generation tools (use OG_BASE_URL, no appId required in switch)
             case ToolNames.GENERATE_IMAGE:
