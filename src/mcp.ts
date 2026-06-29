@@ -27,7 +27,7 @@ import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
 import InspectImageSessionTool from "@/tools/inspect-image-session";
 import ExportImageAssetTool from "@/tools/export-image-asset";
-import { getAppId } from "@/utils/sessionIdToAppId";
+import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
 
 /* Input schemas for tools implemented in this server */
@@ -514,16 +514,25 @@ This will create a transparent PNG icon ready for use in your application.`,
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let { name, arguments: args } = request.params;
-        
-        const isSSETransport = server.transport && 'sessionId' in server.transport;
-        const appId = isSSETransport ? getAppId(server.transport?.sessionId as string) : undefined;
-        const isLocal = !isSSETransport;
+
+        // Resolve credentials from the per-session AuthContext (set by server-http.ts).
+        // When running over stdio (local dev), sessionId is absent and tools fall back
+        // to OPENGRAPH_APP_ID from the environment via getAppId() in og.ts.
+        const sessionId = (server.transport && 'sessionId' in server.transport)
+            ? (server.transport as any).sessionId as string
+            : undefined;
+        const authCtx = sessionId ? getAuthContext(sessionId) : undefined;
+        // appId — forwarded to every OpenGraph API call for billing
+        const appId = authCtx?.appId;
+        // organizationId — available for future marketing-tool (site audit) calls
+        // const organizationId = authCtx?.organizationId;
+        const isLocal = !sessionId;
         
         let validatedArgs: any;
 
         switch (name) {
             case ToolNames.GET_OG_DATA:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_data_tool = new GetOgDataTool(appId);
@@ -531,7 +540,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return og_data_tool.execute(validatedArgs);
 
             case ToolNames.GET_OG_SCRAPE_DATA:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_scrape_data_tool = new GetOgScrapeDataTool(appId);
@@ -539,7 +548,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return og_scrape_data_tool.execute(validatedArgs);
 
             case ToolNames.GET_OG_SCREENSHOT:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_screenshot_tool = new GetOgScreenshotTool(appId);
@@ -547,7 +556,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return og_screenshot_tool.execute(validatedArgs);
 
             case ToolNames.GET_OG_QUERY:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_query_tool = new GetOgQueryTool(appId);
@@ -555,7 +564,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return og_query_tool.execute(validatedArgs);
 
             case ToolNames.GET_OG_EXTRACT:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_extract_tool = new GetOgExtractTool(appId);
@@ -563,7 +572,7 @@ This will create a transparent PNG icon ready for use in your application.`,
                 return og_extract_tool.execute(validatedArgs);
 
             case ToolNames.GET_OG_MARKDOWN:
-                if (isSSETransport && !appId) {
+                if (!isLocal && !appId) {
                     throw new Error("Could not find App ID for session.");
                 }
                 const og_markdown_tool = new GetOgMarkdownTool(appId);
