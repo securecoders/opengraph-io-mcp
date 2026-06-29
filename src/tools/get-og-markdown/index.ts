@@ -18,6 +18,7 @@ class GetOgMarkdownTool extends BaseTool {
         "Convert any URL's HTML into clean Markdown via the OpenGraph.io API (v3 markdown endpoint). " +
         "Strips navigation, ads, and boilerplate by default — the result is main-content prose, " +
         "headings, links, and images ready to read or feed into another model. " +
+        "Use `include_tags` / `exclude_tags` to target or remove specific page sections. " +
         "\n\n" +
         "IMPORTANT — JavaScript-heavy pages: the v3 smart defaults (auto_render) do NOT apply to " +
         "the markdown pipeline. If the target URL is an SPA or requires JS execution, you must " +
@@ -25,7 +26,14 @@ class GetOgMarkdownTool extends BaseTool {
         "will receive the raw server-side HTML (which may be mostly empty for JS apps). " +
         "\n\n" +
         "The Markdown text block is capped at 6 000 characters; the full content is always " +
-        "available in structured output.";
+        "available in the structured `markdown` field.\n\n" +
+        "Pick the right tool:\n" +
+        "  getOgData        → Open Graph tags, social preview metadata (title, description, image, favicon)\n" +
+        "  getOgMarkdown    → Clean readable text / article prose — ideal for feeding into an LLM\n" +
+        "  getOgScrapeData  → Raw HTML — use when you need to do your own parsing or link extraction\n" +
+        "  getOgExtract     → Targeted elements by tag (html_elements) or named CSS selectors (selectors)\n" +
+        "  getOgScreenshot  → Visual capture of a page as an image\n" +
+        "  getOgQuery       → Natural-language question answered from page content (100–200 credits/request)";
 
     annotations = {
         title: "Get Page as Markdown",
