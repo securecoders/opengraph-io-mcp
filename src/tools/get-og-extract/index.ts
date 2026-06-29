@@ -15,13 +15,27 @@ class GetOgExtractTool extends BaseTool {
 
     name = ToolNames.GET_OG_EXTRACT;
     description =
-        "Extract content from any URL via the OpenGraph.io API (v3 POST endpoint). " +
-        "Two extraction modes:\n\n" +
-        "1. **Tag-based** (`html_elements`): pass tag names like ['h1','p','a','img'] to get all matching elements with their text.\n\n" +
-        "2. **Selector-based** (`selectors`): pass a CSS selector map like `{ \"title\": \"article h1\", \"price\": \".price\" }` " +
-        "to extract structured data with named labels — ideal for scraping specific fields from a page.\n\n" +
-        "Both modes support the full v3 fetch/proxy/render options including smart defaults (auto_render, auto_proxy, retry). " +
-        "Returns a summary table plus the full structured payload.";
+        "Extract specific content from any URL via the OpenGraph.io API (v3). " +
+        "Two modes — choose based on what you need:\n\n" +
+        "**Mode 1 — Tag-based** (`html_elements`): pass an array of HTML tag names, e.g. `['h1','h2','p','a']`. " +
+        "The API collects all matching elements and joins their text into a single `concatenatedText` string. " +
+        "Best for bulk content extraction where you want all headings, paragraphs, or links as one block of text.\n\n" +
+        "**Mode 2 — Selector-based** (`selectors`): pass a CSS selector map where each key is your chosen label and each value is a CSS selector, " +
+        "e.g. `{ \"title\": \"article h1\", \"price\": \".price-box .price\", \"sku\": \"#product-sku\" }`. " +
+        "The API returns a `data` object keyed by those labels — ideal for structured scraping of specific named fields.\n\n" +
+        "**Response shape by mode:**\n" +
+        "- `html_elements` only → `{ concatenatedText }`\n" +
+        "- `selectors` only → `{ data, concatenatedText }`\n" +
+        "- Both provided → `{ data, concatenatedText }`\n\n" +
+        "For JS-heavy / SPA pages set `full_render: true` to guarantee JavaScript execution before extraction. " +
+        "Use `wait_for_selector` when content loads asynchronously.\n\n" +
+        "Pick the right tool:\n" +
+        "  getOgData        → Open Graph tags, social preview metadata (title, description, image, favicon)\n" +
+        "  getOgMarkdown    → Clean readable text / article prose — ideal for feeding into an LLM\n" +
+        "  getOgScrapeData  → Raw HTML — use when you need to do your own parsing or link extraction\n" +
+        "  getOgExtract     → Targeted elements by tag (html_elements) or named CSS selectors (selectors)\n" +
+        "  getOgScreenshot  → Visual capture of a page as an image\n" +
+        "  getOgQuery       → Natural-language question answered from page content (100–200 credits/request)";
 
     annotations = {
         title: "Extract HTML Elements",
@@ -113,16 +127,13 @@ class GetOgExtractTool extends BaseTool {
     });
 
     outputSchema = z.object({
-        url:             z.string(),
-        concatenatedText: z.string().optional().describe("All matched text concatenated"),
-        data:            z.record(z.string(), z.any()).optional().describe(
-            "Structured data keyed by selector label (present when selectors param was used)",
+        url:              z.string(),
+        concatenatedText: z.string().optional().describe(
+            "All matched element text joined into one string. Present in both html_elements and selectors modes.",
         ),
-        tags:            z.array(z.object({
-            tag:       z.string(),
-            innerText: z.string(),
-            position:  z.number().optional(),
-        })).optional().describe("Extracted tag elements (present when html_elements param was used on v1.1)"),
+        data:             z.record(z.string(), z.any()).optional().describe(
+            "Structured object keyed by your selector labels. Only present when the selectors param was used.",
+        ),
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
@@ -130,7 +141,6 @@ class GetOgExtractTool extends BaseTool {
             const { url, html_elements = [], selectors, ...options } = args;
             const raw = await extractHtmlElements(url, html_elements, this.appId, { ...options, selectors });
             const payload = {
-                tags:             raw?.tags            ?? raw?.elements ?? [],
                 concatenatedText: raw?.concatenatedText ?? raw?.allText ?? '',
                 data:             raw?.data,
                 ai_safety:        raw?.ai_safety,

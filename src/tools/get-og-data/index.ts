@@ -14,10 +14,14 @@ const commonFetchParams = {
         "Maximum cache age in milliseconds. Results older than this will be re-fetched. Defaults to 432000000 (5 days).",
     ),
     full_render: z.boolean().optional().describe(
-        "Fully render the page with JavaScript before extracting data. Useful for SPAs and JS-heavy sites.",
+        "Forces a full browser execution pass on every request regardless of page type. " +
+        "Use when auto_render hasn't produced the content you expected, or when you need guaranteed JavaScript execution. " +
+        "Slower than auto_render — prefer auto_render for most cases.",
     ),
     auto_render: z.boolean().optional().describe(
-        "Automatically detect and switch to headless rendering for SPA pages. Defaults to true on v3.",
+        "Automatically detects JS-heavy / SPA pages and re-fetches with browser rendering when needed. " +
+        "Enabled by default on v3 — leave unset unless you want to disable it. " +
+        "For guaranteed JS execution on every request use full_render: true instead.",
     ),
     wait_for_selector: z.string().optional().describe(
         "CSS selector to wait for before extracting data. Forces full_render.",
@@ -86,8 +90,16 @@ class GetOgDataTool extends BaseTool {
     name = ToolNames.GET_OG_DATA;
     description =
         "Fetch Open Graph metadata, HTML-inferred tags, and hybrid social preview data for any URL via the OpenGraph.io API (v3). " +
-        "Returns og:title, og:description, og:image, og:type, favicon, and more from all three metadata sources. " +
-        "Use this to analyze a page's social sharing preview, validate meta tags, or extract structured page metadata.";
+        "Returns og:title, og:description, og:image, og:type, favicon, and more, merged from three sources: " +
+        "raw Open Graph tags (`openGraph`), HTML-inferred fallbacks (`htmlInferred`), and a best-of hybrid (`hybridGraph`). " +
+        "Use `hybridGraph` as your primary source — it fills gaps automatically.\n\n" +
+        "Pick the right tool:\n" +
+        "  getOgData        → Open Graph tags, social preview metadata (title, description, image, favicon)\n" +
+        "  getOgMarkdown    → Clean readable text / article prose — ideal for feeding into an LLM\n" +
+        "  getOgScrapeData  → Raw HTML — use when you need to do your own parsing or link extraction\n" +
+        "  getOgExtract     → Targeted elements by tag (html_elements) or named CSS selectors (selectors)\n" +
+        "  getOgScreenshot  → Visual capture of a page as an image\n" +
+        "  getOgQuery       → Natural-language question answered from page content (100–200 credits/request)";
 
     annotations = {
         title: "Get Open Graph Data",

@@ -15,10 +15,18 @@ class GetOgScreenshotTool extends BaseTool {
 
     name = ToolNames.GET_OG_SCREENSHOT;
     description =
-        "Capture a screenshot of any URL and return the hosted image URL via the OpenGraph.io API (v3). " +
-        "Supports full-page or viewport captures, custom dimensions, dark mode, and CSS selector exclusions. " +
-        "The screenshot is rendered with a real browser — use full_render for JavaScript-heavy sites. " +
-        "Returns a URL to the hosted screenshot image.";
+        "Capture a screenshot of any URL via the OpenGraph.io API (v3). " +
+        "Supports full-page or viewport captures, custom viewport dimensions, dark mode, " +
+        "image format/quality control, cookie-banner dismissal, and CSS selector-based element targeting or exclusion.\n\n" +
+        "Returns a `screenshotUrl` — a hosted URL pointing to the screenshot image file, not inline image data. " +
+        "Use this URL directly in a browser, an <img> tag, or pass it to another tool.\n\n" +
+        "Pick the right tool:\n" +
+        "  getOgData        → Open Graph tags, social preview metadata (title, description, image, favicon)\n" +
+        "  getOgMarkdown    → Clean readable text / article prose — ideal for feeding into an LLM\n" +
+        "  getOgScrapeData  → Raw HTML — use when you need to do your own parsing or link extraction\n" +
+        "  getOgExtract     → Targeted elements by tag (html_elements) or named CSS selectors (selectors)\n" +
+        "  getOgScreenshot  → Visual capture of a page as an image\n" +
+        "  getOgQuery       → Natural-language question answered from page content (100–200 credits/request)";
 
     annotations = {
         title: "Screenshot URL",

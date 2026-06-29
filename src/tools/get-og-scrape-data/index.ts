@@ -16,9 +16,18 @@ class GetOgScrapeDataTool extends BaseTool {
     name = ToolNames.GET_OG_SCRAPE_DATA;
     description =
         "Scrape and return the raw HTML of a URL via the OpenGraph.io API (v3). " +
-        "Useful when you need the full page HTML for detailed analysis, link extraction, or custom parsing. " +
-        "Use full_render for JavaScript-heavy or single-page applications. " +
-        "Returns a summary with the first 3 000 characters plus the full HTML in structured output.";
+        "Returns the complete page HTML — use this when you need to do your own parsing, extract all links, " +
+        "inspect the DOM structure, or feed raw markup into another tool or model. " +
+        "The text response includes the first 3 000 characters; the full HTML is in the structured `html` field.\n\n" +
+        "For JS-heavy or single-page applications set `full_render: true` to guarantee JavaScript execution " +
+        "before the HTML is captured. For most sites, the default `auto_render` handles this automatically.\n\n" +
+        "Pick the right tool:\n" +
+        "  getOgData        → Open Graph tags, social preview metadata (title, description, image, favicon)\n" +
+        "  getOgMarkdown    → Clean readable text / article prose — ideal for feeding into an LLM\n" +
+        "  getOgScrapeData  → Raw HTML — use when you need to do your own parsing or link extraction\n" +
+        "  getOgExtract     → Targeted elements by tag (html_elements) or named CSS selectors (selectors)\n" +
+        "  getOgScreenshot  → Visual capture of a page as an image\n" +
+        "  getOgQuery       → Natural-language question answered from page content (100–200 credits/request)";
 
     annotations = {
         title: "Scrape HTML",
@@ -37,10 +46,14 @@ class GetOgScrapeDataTool extends BaseTool {
             "Maximum cache age in milliseconds. Results older than this will be re-fetched. Defaults to 432000000 (5 days).",
         ),
         full_render: z.boolean().optional().describe(
-            "Fully render the page with JavaScript before scraping. Useful for SPAs and JS-heavy sites.",
+            "Forces a full browser execution pass on every request regardless of page type. " +
+            "Use when auto_render hasn't produced the content you expected, or when you need guaranteed JavaScript execution. " +
+            "Slower than auto_render — prefer auto_render for most cases.",
         ),
         auto_render: z.boolean().optional().describe(
-            "Automatically detect and switch to headless rendering for SPA pages. Defaults to true on v3.",
+            "Automatically detects JS-heavy / SPA pages and re-fetches with browser rendering when needed. " +
+            "Enabled by default on v3 — leave unset unless you want to disable it. " +
+            "For guaranteed JS execution on every request use full_render: true instead.",
         ),
         wait_for_selector: z.string().optional().describe(
             "CSS selector to wait for before scraping. Forces full_render.",
