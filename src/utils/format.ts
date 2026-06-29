@@ -32,12 +32,13 @@ interface FormatResult {
 /**
  * Build a CallToolResult from a formatted response.
  * The text content block carries the Markdown summary; structuredContent
- * carries the complete machine-readable payload.
+ * carries the complete machine-readable payload (omitted on errors so the MCP
+ * SDK does not validate error content against the tool's outputSchema).
  */
 export function toResult({ markdown, structured, isError }: FormatResult): CallToolResult {
     const result: CallToolResult = {
         content: [{ type: "text", text: markdown }],
-        structuredContent: structured,
+        ...(isError ? {} : { structuredContent: structured }),
     };
     if (isError) {
         result.isError = true;
