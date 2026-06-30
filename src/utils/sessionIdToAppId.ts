@@ -16,6 +16,12 @@ export interface AuthContext {
   organizationId?: string;
   /** OAuth scope string, e.g. "mcp" */
   scope?: string;
+  /**
+   * Raw Bearer JWT — forwarded as Authorization header when calling
+   * apifur-api endpoints that require session-or-bearer auth (e.g. site audit).
+   * Only present for OAuth-authenticated sessions, not x-app-id fallback.
+   */
+  accessToken?: string;
 }
 
 const store = new Map<string, AuthContext>();

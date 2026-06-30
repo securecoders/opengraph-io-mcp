@@ -27,6 +27,13 @@ import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
 import InspectImageSessionTool from "@/tools/inspect-image-session";
 import ExportImageAssetTool from "@/tools/export-image-asset";
+// Site Audit tools
+import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
+import StartSiteAuditTool from "@/tools/start-site-audit";
+import GetSiteAuditStatusTool from "@/tools/get-site-audit-status";
+import GetSiteAuditReportTool from "@/tools/get-site-audit-report";
+import PreviewPageAuditTool from "@/tools/preview-page-audit";
+import GetLinkPreviewTool from "@/tools/get-link-preview";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
 
@@ -51,6 +58,8 @@ enum PromptName {
     ANALYZE_WEBPAGE = "analyze-webpage",
     EXTRACT_STRUCTURED_DATA = "extract-structured-data",
     GET_PAGE_CONTENT = "get-page-content",
+    // Site Audit workflow
+    RUN_SITE_AUDIT = "run-site-audit",
 }
 
 const SERVER_INSTRUCTIONS = `\
@@ -96,6 +105,37 @@ FETCH PARAMETERS (available on most data tools):
   use_proxy / use_premium / use_superior — proxy tiers for geo-restricted or bot-protected pages
   cache_ok / max_cache_age — control response caching (defaults: true / 5 days)
   retry / max_retries / retry_escalate — automatic retry with proxy escalation on failure
+
+SITE AUDIT TOOLS (require OAuth + Site Audit plan):
+  discoverSiteUrls  — Crawl a domain and return every page found, grouped by depth, plus remaining
+                       monthly quota and siteContextText for AI enrichment.
+  startSiteAudit    — Start the async audit. Pass urls[] for exact control; omit to let the backend
+                       crawl. URLs can come from discoverSiteUrls, a codebase route scan, a sitemap,
+                       or a manually provided list — discoverSiteUrls is NOT required first.
+                       Returns an auditId immediately.
+  getSiteAuditStatus — Poll progress (QUEUED → CRAWLING → SCORING → COMPLETE). Call every 5–10s.
+  getSiteAuditReport — Retrieve the full report once COMPLETE: overall score 0–100, AI-generated
+                       executive summary, top priorities, critical issues with business impact,
+                       per-page scores and check breakdowns, OG coverage rates.
+  previewPageAudit  — Instant synchronous single-URL audit. Returns score + issues immediately.
+                       Does not consume audit page quota.
+
+  getLinkPreview    — Check how a URL will appear when shared on Facebook, Twitter/X, LinkedIn,
+                       and Google. Returns platform preview cards (title, description, image per
+                       platform), a quality score, and a list of issues to fix.
+                       Use when the user asks to "check link preview", "how does X look on social",
+                       or "check my og tags". Synchronous. Does not consume audit quota.
+                       Requires OAuth.
+
+  IMPORTANT WORKFLOW RULES:
+  1. Always ask the user their preferred scope BEFORE calling any tools:
+     whole site / core pages / specific section / codebase scan.
+  2. For "audit all": call discoverSiteUrls, then pass the complete urls array from the STRUCTURED
+     OUTPUT directly to startSiteAudit — do not re-parse URLs from the markdown display.
+  3. For "codebase scan": read route files, construct URLs, call startSiteAudit directly.
+  4. The quota is monthly (not per-audit). If the audit is clamped, tell the user how many pages
+     remain in their monthly quota and link them to the billing page to upgrade.
+  Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
 
 IMAGE GENERATION TOOLS:
   generateImage, iterateImage, inspectImageSession, exportImageAsset — create and refine diagrams,
@@ -358,6 +398,17 @@ export const createServer = () => {
                             name: "is_spa",
                             description: "Set to 'true' if the page is a JavaScript-heavy single-page application (forces full browser rendering)",
                             required: false,
+                        },
+                    ],
+                },
+                {
+                    name: PromptName.RUN_SITE_AUDIT,
+                    description: "Audit pages of a domain for Open Graph, social metadata, and SEO quality. Discovers URLs first so the user can choose which pages to include, then runs an async audit and returns a rich AI-generated report.",
+                    arguments: [
+                        {
+                            name: "domain",
+                            description: "The domain to audit (e.g. https://example.com)",
+                            required: true,
                         },
                     ],
                 },
@@ -747,6 +798,158 @@ Once you have the content, you can:
             };
         }
 
+        if (name === PromptName.RUN_SITE_AUDIT) {
+            const domain = args?.domain || "[domain]";
+
+            return {
+                messages: [
+                    {
+                        role: "user",
+                        content: {
+                            type: "text",
+                            text: `Run a site audit for: ${domain}
+
+Follow these steps exactly.
+
+---
+
+## Step 0 — Ask scope BEFORE calling any tools
+
+Ask the user this question first and wait for their response:
+
+> "Before I start the audit, how would you like to approach this?
+>
+> - **Whole site** — I'll discover every page and audit them all
+> - **Core pages only** — homepage, about, pricing, docs, and key marketing pages
+> - **Specific section** — e.g. 'all blog posts', 'just the reports', 'product pages'
+> - **Scan codebase** — I'll find your routes directly from the code (fastest, no crawl needed)
+>
+> Which would you prefer?"
+
+Do not call any tools until the user answers.
+
+---
+
+## Branch A — Whole site
+
+If the user wants the whole site audited:
+
+1. Call discoverSiteUrls to get the full page list and quota info:
+\`\`\`
+discoverSiteUrls({ domain: "${domain}" })
+\`\`\`
+
+2. Take the complete \`urls\` array directly from the **structured output** (not from the markdown text).
+   Do NOT attempt to re-read or re-parse individual URLs from the markdown display.
+
+3. Call startSiteAudit immediately — pass ALL urls and the totalFound count:
+\`\`\`
+startSiteAudit({
+  domain: "${domain}",
+  urls: [ /* every entry from discoverSiteUrls structured output urls array */ ],
+  pagesRequested: /* totalFound from structured output */,
+  siteContextText: /* siteContextText from structured output */
+})
+\`\`\`
+
+4. Proceed to Step 3 (poll).
+
+---
+
+## Branch B — Specific pages or section
+
+If the user wants specific pages or a section:
+
+1. Call discoverSiteUrls to get the full page list:
+\`\`\`
+discoverSiteUrls({ domain: "${domain}" })
+\`\`\`
+
+2. Present the URL list clearly, grouped by section, and ask the user to confirm their selection:
+> "I found [N] pages. Here they are:
+> [list pages grouped by depth/section]
+>
+> Which of these would you like included?"
+
+Wait for the user's response.
+
+3. Map their selection to the actual URLs, then call startSiteAudit:
+\`\`\`
+startSiteAudit({
+  domain: "${domain}",
+  urls: [ /* the URLs the user selected */ ],
+  pagesRequested: /* number of selected URLs */,
+  siteContextText: /* siteContextText from structured output */
+})
+\`\`\`
+
+4. Proceed to Step 3 (poll).
+
+---
+
+## Branch C — Codebase scan
+
+If the user wants you to scan their codebase for routes (they have the project open):
+
+1. Use your file-reading tools to find route definitions. Common locations:
+   - Next.js App Router: \`app/\` directory — each \`page.tsx\` is a route
+   - Next.js Pages Router: \`pages/\` directory
+   - React Router: route config files (e.g. \`src/routes.tsx\`, \`src/App.tsx\`)
+   - Express / other: route registration files
+
+2. Construct the full URL list by prepending the domain to each path found.
+
+3. Call startSiteAudit directly — no discoverSiteUrls needed:
+\`\`\`
+startSiteAudit({
+  domain: "${domain}",
+  urls: [ /* full URLs constructed from codebase routes */ ],
+  pagesRequested: /* total count */
+})
+\`\`\`
+
+4. Proceed to Step 3 (poll).
+
+---
+
+## Step 3 — Poll status every 5–10 seconds
+
+\`\`\`
+getSiteAuditStatus({ auditId: "<auditId>" })
+\`\`\`
+
+While polling, keep the user informed:
+- QUEUED → "Starting up…"
+- CRAWLING → "Crawling pages… ([pagesAudited]/[pagesRequested] done)"
+- SCORING → "Scoring pages and generating AI analysis…"
+- COMPLETE → proceed to Step 4
+- FAILED → report the errorMessage and stop
+
+---
+
+## Step 4 — Retrieve and present the report
+
+\`\`\`
+getSiteAuditReport({ auditId: "<auditId>" })
+\`\`\`
+
+The tool returns a formatted Markdown report. Present the full output to the user.
+The report includes:
+- Overall score and grade
+- AI-generated executive summary
+- What's working well
+- Top priorities (numbered, actionable)
+- Critical issues with business impact and fix guidance
+- Pages needing attention (worst scores first, with top issue per page)
+- Open Graph coverage rates across all checks
+
+After presenting, ask: **"Would you like me to fix any of these issues in the codebase?"**`,
+                        },
+                    },
+                ],
+            };
+        }
+
         throw new Error(`Unknown prompt: ${name}`);
     });
 
@@ -766,8 +969,9 @@ Once you have the content, you can:
         const authCtx = sessionId ? getAuthContext(sessionId) : undefined;
         // appId — forwarded to every OpenGraph API call for billing
         const appId = authCtx?.appId;
-        // organizationId — available for future marketing-tool (site audit) calls
-        // const organizationId = authCtx?.organizationId;
+        // organizationId + accessToken — required for Site Audit calls
+        const organizationId = authCtx?.organizationId ?? "";
+        const accessToken    = authCtx?.accessToken ?? "";
         const isLocal = !sessionId;
         
         let validatedArgs: any;
@@ -841,6 +1045,37 @@ Once you have the content, you can:
                 const export_asset_tool = new ExportImageAssetTool(appId, isLocal);
                 validatedArgs = export_asset_tool.inputSchema.parse(args);
                 return export_asset_tool.execute(validatedArgs);
+
+            // Site Audit tools — require OAuth Bearer token + Site Audit plan
+            case ToolNames.DISCOVER_SITE_URLS:
+                const discover_tool = new DiscoverSiteUrlsTool(accessToken, organizationId);
+                validatedArgs = discover_tool.inputSchema.parse(args);
+                return discover_tool.execute(validatedArgs);
+
+            case ToolNames.START_SITE_AUDIT:
+                const start_audit_tool = new StartSiteAuditTool(accessToken, organizationId);
+                validatedArgs = start_audit_tool.inputSchema.parse(args);
+                return start_audit_tool.execute(validatedArgs);
+
+            case ToolNames.GET_SITE_AUDIT_STATUS:
+                const audit_status_tool = new GetSiteAuditStatusTool(accessToken);
+                validatedArgs = audit_status_tool.inputSchema.parse(args);
+                return audit_status_tool.execute(validatedArgs);
+
+            case ToolNames.GET_SITE_AUDIT_REPORT:
+                const audit_report_tool = new GetSiteAuditReportTool(accessToken);
+                validatedArgs = audit_report_tool.inputSchema.parse(args);
+                return audit_report_tool.execute(validatedArgs);
+
+            case ToolNames.PREVIEW_PAGE_AUDIT:
+                const preview_audit_tool = new PreviewPageAuditTool(accessToken, organizationId);
+                validatedArgs = preview_audit_tool.inputSchema.parse(args);
+                return preview_audit_tool.execute(validatedArgs);
+
+            case ToolNames.GET_LINK_PREVIEW:
+                const link_preview_tool = new GetLinkPreviewTool(accessToken, organizationId);
+                validatedArgs = link_preview_tool.inputSchema.parse(args);
+                return link_preview_tool.execute(validatedArgs);
 
             default:
                 throw new Error(`Unknown tool: ${name}`);

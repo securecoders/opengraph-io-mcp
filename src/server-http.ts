@@ -73,13 +73,14 @@ async function extractAuth(req: Request): Promise<AuthContext | null> {
   const authorization = req.headers["authorization"] as string | undefined;
 
   if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
-    const jwt = authorization.slice(7).trim();
+    const rawToken = authorization.slice(7).trim();
     try {
-      const claims = await verifyAccessToken(jwt);
+      const claims = await verifyAccessToken(rawToken);
       return {
         appId:          claims.appId,
         organizationId: claims.organizationId,
         scope:          claims.scope,
+        accessToken:    rawToken,
       };
     } catch {
       return null;
