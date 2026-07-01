@@ -214,6 +214,8 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 
 ## Available Tools
 
+> **Two authentication tiers:** Data and Image Generation tools work with either OAuth or a simple `x-app-id` API key — including the stdio transport and the Claude Desktop extension. Site Audit and Link Preview tools require OAuth (hosted HTTPS transport only), since they bill against your organization's Site Audit plan rather than a single API key.
+
 ### OpenGraph.io Data Tools
 
 All scraping/metadata tools default to the **v3** API which enables `auto_render`, `auto_proxy`, and `retry` by default for higher success rates on complex pages. The `query` and `extract` tools use v1.1 (see notes).
@@ -228,6 +230,19 @@ All scraping/metadata tools default to the **v3** API which enables `auto_render
 | **Get OG Markdown** | `/api/3.0/markdown/<URL>` | Convert any URL's HTML to clean Markdown. Strips nav/ads by default (`only_main_content: true`). Supports `include_tags`/`exclude_tags` selectors. **Note:** JS-heavy/SPA pages require `full_render: true` — v3 `auto_render` does not apply to this endpoint. | [Docs](https://www.opengraph.io/documentation) |
 
 **Language detection:** All tools send `accept_lang: auto` by default, which mirrors the request's `Accept-Language` header. Pass an explicit BCP 47 tag (e.g. `en-US`, `fr`) to override.
+
+### Site Audit & Link Preview Tools
+
+**Requires OAuth 2.1** (see [Authentication](#authentication)) and an active Site Audit plan. These tools are only available over the hosted HTTPS transport — they are not available via the `x-app-id` header or the stdio/Claude Desktop extension, since they need your organization identity, not just an API key.
+
+| Tool Name | Description |
+|-----------|-------------|
+| **Discover Site URLs** | Crawl a domain (sitemap + link discovery) and return every page found, grouped by depth, along with your remaining monthly audit quota. |
+| **Start Site Audit** | Kick off an async, multi-page SEO/social audit. Pass an explicit `urls[]` list (from discovery, a sitemap, or a codebase route scan) or let the backend crawl the domain itself. Returns an `auditId` immediately. |
+| **Get Site Audit Status** | Poll an in-progress audit (`QUEUED` → `CRAWLING` → `SCORING` → `COMPLETE`). |
+| **Get Site Audit Report** | Retrieve the full report once complete: overall score (0–100), an AI-generated executive summary, prioritized fixes, per-page scores, and Open Graph coverage rates. |
+| **Preview Page Audit** | Instant, synchronous single-URL quality check with score + issues. Does not consume audit quota. |
+| **Get Link Preview** | Instant, synchronous check of how a URL will render when shared — returns Facebook, Twitter/X, LinkedIn, and Google preview cards plus a quality score and fix list. Does not consume audit quota. |
 
 ### Image Generation Tools
 
@@ -341,6 +356,21 @@ exportImageAsset({
   destinationPath: "/Users/me/project/images/hero.png"
 })
 ```
+
+## Guided Workflows (Prompts)
+
+In addition to tools, the server exposes named **prompts** — pre-built, multi-step workflows that MCP clients can surface directly to users (e.g. as slash commands) or that agents can invoke by name for a more reliable result than freeform tool-calling.
+
+| Prompt Name | What it does |
+|--------------|--------------|
+| `analyze-webpage` | Fetches a page's metadata and readable content in parallel, then summarizes or answers a specific question about it. |
+| `extract-structured-data` | Extracts named fields (title, price, SKU, etc.) from a page using CSS selectors — ideal for ecommerce, job listings, and articles. |
+| `get-page-content` | Converts a URL to clean readable text/Markdown, stripping boilerplate — ready to read or pass to another model. |
+| `run-site-audit` | Full site-audit workflow: asks the user their preferred scope (whole site / core pages / specific section / codebase scan), discovers URLs if needed, starts the audit, polls status, and returns a readable report. Requires OAuth. |
+| `create-branded-diagram` | Guided workflow for creating diagrams (flowchart, sequence, architecture, ER, state) that match your brand identity. |
+| `iterate-and-refine` | Best practices for iterating on a previously generated image to reach the desired result. |
+| `create-asset-set` | Generates a visually consistent set of icons, social cards, diagrams, or illustrations. |
+| `quick-icon` | Quickly generates a single icon with sensible defaults. |
 
 ## How it works
 

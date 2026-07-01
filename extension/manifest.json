@@ -1,7 +1,7 @@
 {
   "name": "OpenGraph MCP",
-  "version": "1.0.6",
-  "description": "Access OpenGraph.io APIs from Claude - extract metadata, scrape content, capture screenshots, and query sites with AI.",
+  "version": "1.1.0",
+  "description": "Access OpenGraph.io APIs from Claude - fetch OG/social metadata, scrape or extract content, capture screenshots, convert pages to Markdown, query sites with AI, and generate images.",
   "author": "SecureCoders",
   "homepage": "https://github.com/securecoders/og-mcp",
   "repository": {
@@ -27,11 +27,11 @@
   "tools": [
     {
       "name": "getOgData",
-      "description": "Extract Open Graph metadata from a URL"
+      "description": "Fetch Open Graph metadata and social preview data from a URL"
     },
     {
       "name": "getOgScrapeData",
-      "description": "Scrape raw HTML/data from a URL"
+      "description": "Scrape raw HTML from a URL"
     },
     {
       "name": "getOgScreenshot",
@@ -39,11 +39,31 @@
     },
     {
       "name": "getOgQuery",
-      "description": "Query a site with a custom question using AI"
+      "description": "Ask a natural-language question about a page's content using AI"
     },
     {
       "name": "getOgExtract",
-      "description": "Extract specific HTML elements from a webpage"
+      "description": "Extract specific HTML elements or CSS-selected fields from a webpage"
+    },
+    {
+      "name": "getOgMarkdown",
+      "description": "Convert a URL's HTML to clean, readable Markdown"
+    },
+    {
+      "name": "generateImage",
+      "description": "Generate illustrations, diagrams, icons, social cards, or QR codes with AI"
+    },
+    {
+      "name": "iterateImage",
+      "description": "Refine or create variations of a previously generated image"
+    },
+    {
+      "name": "inspectImageSession",
+      "description": "Review a generated-image session's metadata and asset history"
+    },
+    {
+      "name": "exportImageAsset",
+      "description": "Export a generated image asset as inline base64 (or save to disk locally)"
     }
   ]
 }

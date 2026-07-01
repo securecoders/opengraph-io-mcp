@@ -26,12 +26,18 @@
     "web-scraping",
     "screenshots",
     "link-preview",
+    "site-audit",
+    "seo",
+    "og-tags",
+    "open-graph",
+    "markdown",
+    "image-generation",
     "claude",
     "cursor"
   ],
   "author": "securecoders",
   "license": "ISC",
-  "description": "MCP tool for opengraph.io",
+  "description": "MCP server for OpenGraph.io — fetch web/social data, screenshots, scrape, extract, convert to Markdown, generate images, and audit site SEO & link previews.",
   "repository": {
     "type": "git",
     "url": "https://github.com/securecoders/opengraph-io-mcp"
