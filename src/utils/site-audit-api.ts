@@ -188,13 +188,17 @@ export const getAuditReport = async (
  * Run a fast, synchronous audit of a single URL.
  * Returns a score, issues, check results, and social previews immediately.
  * Suitable for quick quality checks without starting a full async audit.
+ *
+ * Routes through the existing /api/v1/link-preview gateway which enforces
+ * the linkPreview feature flag, tier rate limits, and billing counters —
+ * the same path used by the marketing dashboard.
  */
 export const previewPage = async (
     organizationId: string,
     url: string,
     accessToken: string,
 ): Promise<PreviewResult> =>
-    apiRequest("POST", "/api/v1/site-audit/preview", accessToken, {
+    apiRequest("POST", "/api/v1/link-preview", accessToken, {
         organizationId,
         url,
     });
