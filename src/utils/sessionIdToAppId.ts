@@ -1,55 +1,82 @@
-// Use a Map to store the session ID to app ID mapping
-const sessionIdToAppIdMap = new Map<string, string>();
+/**
+ * Per-session authentication context.
+ *
+ * Stores credentials extracted from either:
+ *   - A bearer JWT (OAuth 2.1 flow): appId + organizationId + scope
+ *   - An x-app-id header (legacy fallback): appId only
+ *
+ * The sessionId is the Streamable-HTTP session identifier managed by the
+ * MCP SDK (one per client connection).
+ */
+
+export interface AuthContext {
+  /** ApiKey.key — forwarded to OpenGraph API as app_id for billing */
+  appId: string;
+  /** Organization UUID — available for marketing-tool billing (site audit) */
+  organizationId?: string;
+  /** OAuth scope string, e.g. "mcp" */
+  scope?: string;
+  /**
+   * Raw Bearer JWT — forwarded as Authorization header when calling
+   * apifur-api endpoints that require session-or-bearer auth (e.g. site audit).
+   * Only present for OAuth-authenticated sessions, not x-app-id fallback.
+   */
+  accessToken?: string;
+}
+
+const store = new Map<string, AuthContext>();
+
+// ---------------------------------------------------------------------------
+// Write
+// ---------------------------------------------------------------------------
 
 /**
- * Stores the app ID associated with a given session ID.
- * @param sessionId The unique session identifier.
- * @param appId The app ID (or API key) to store.
+ * Store a full AuthContext for a session (OAuth path).
+ */
+export function setAuthContext(sessionId: string, ctx: AuthContext): void {
+  if (!sessionId) return;
+  store.set(sessionId, ctx);
+}
+
+/**
+ * Store just an appId for a session (legacy x-app-id path).
+ * Preserves existing organizationId / scope if already set.
  */
 export function setAppId(sessionId: string, appId: string): void {
-  if (!sessionId || typeof sessionId !== 'string') {
-    console.warn('Attempted to set app ID with invalid session ID:', sessionId);
-    return;
-  }
-  if (!appId || typeof appId !== 'string') {
-    console.warn('Attempted to set invalid app ID for session ID:', sessionId);
-    // Decide if you want to store potentially invalid IDs or return/throw
-    // Storing it for now, but validation might be desired.
-  }
-  sessionIdToAppIdMap.set(sessionId, appId);
+  if (!sessionId) return;
+  const existing = store.get(sessionId);
+  store.set(sessionId, { ...existing, appId });
+}
+
+// ---------------------------------------------------------------------------
+// Read
+// ---------------------------------------------------------------------------
+
+export function getAuthContext(sessionId: string): AuthContext | undefined {
+  if (!sessionId) return undefined;
+  return store.get(sessionId);
 }
 
 /**
- * Retrieves the app ID associated with a given session ID.
- * @param sessionId The unique session identifier.
- * @returns The associated app ID, or undefined if not found.
+ * Convenience accessor — backward-compatible with previous callers that only
+ * needed the appId.
  */
 export function getAppId(sessionId: string): string | undefined {
-  if (!sessionId || typeof sessionId !== 'string') {
-    console.warn('Attempted to get app ID with invalid session ID:', sessionId);
-    return undefined;
-  }
-  return sessionIdToAppIdMap.get(sessionId);
+  return store.get(sessionId)?.appId;
 }
 
-/**
- * Deletes the mapping for a given session ID.
- * @param sessionId The unique session identifier to remove.
- */
+// ---------------------------------------------------------------------------
+// Delete / clear (connection teardown, tests)
+// ---------------------------------------------------------------------------
+
 export function deleteAppId(sessionId: string): void {
-  if (!sessionId || typeof sessionId !== 'string') {
-    console.warn('Attempted to delete app ID with invalid session ID:', sessionId);
-    return;
-  }
-  sessionIdToAppIdMap.delete(sessionId);
+  store.delete(sessionId);
 }
 
-// Optional: Function to clear the entire map, e.g., for testing or specific resets
 export function clearAllAppIds(): void {
-  sessionIdToAppIdMap.clear();
+  store.clear();
 }
 
-// Optional: Function to get the current size, useful for debugging
 export function getAppIdMapSize(): number {
-  return sessionIdToAppIdMap.size;
+  return store.size;
 }

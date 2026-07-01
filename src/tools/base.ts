@@ -28,6 +28,7 @@ abstract class BaseTool {
             name: this.name,
             description: this.description,
             inputSchema: zodToJsonSchema(this.inputSchema) as Tool["inputSchema"],
+            outputSchema: zodToJsonSchema(this.outputSchema) as Tool["outputSchema"],
             ...(this.annotations && { annotations: this.annotations }),
         };
     }

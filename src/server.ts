@@ -36,5 +36,5 @@ app.post("/message", async (req, res) => {
 
 const PORT = process.env.PORT || 3010;
 app.listen(PORT, () => {
-  // console.log(`Server is running on port ${PORT}`);
+  console.log(`MCP server (SSE/legacy) listening on port ${PORT}`);
 });

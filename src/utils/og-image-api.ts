@@ -1,4 +1,4 @@
-import { getBaseUrl } from "./og.js";
+import { getBaseUrl } from "@/utils/og";
 
 /**
  * Get the base URL for the og-image-agent API
