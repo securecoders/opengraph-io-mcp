@@ -167,7 +167,7 @@ describe("getSiteAuditChanges", () => {
     stubFetch({ "/diff": { ok: false, status: 500 }, "/priorities": { ok: false, status: 500 } });
     const tool = new GetSiteAuditChangesTool("tok");
     const res: any = await tool.execute(tool.inputSchema.parse({ auditId: "a1" }));
-    expect(res.isError ?? JSON.stringify(res)).toBeTruthy();
+    expect(res.isError).toBe(true);
     expect(JSON.stringify(res)).not.toMatch(/Fix first/);
   });
 

@@ -122,6 +122,19 @@ describe("setMonitoringSchedule", () => {
     expect(res.structuredContent.schedule).toBeNull();
   });
 
+  it("refuses to both delete and configure in one call", async () => {
+    // enabled:false deletes; any other field would be silently dropped — and
+    // `paused` in particular means the caller wanted the config kept.
+    stubFetch();
+    const tool = new SetMonitoringScheduleTool("tok", "org-1");
+    const res: any = await tool.execute(tool.inputSchema.parse({
+      websiteId: "w1", enabled: false, paused: true,
+    }));
+    expect(JSON.stringify(res)).toMatch(/would be discarded/);
+    expect(JSON.stringify(res)).toMatch(/paused: true/);
+    expect(calls).toHaveLength(0);
+  });
+
   it("warns that disabling destroys the configuration", async () => {
     stubFetch({ "/schedule": { status: 204 } });
     const tool = new SetMonitoringScheduleTool("tok", "org-1");

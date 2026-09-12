@@ -21,7 +21,9 @@ class EmailSiteAuditReportTool extends BaseTool {
     annotations = {
         title: "Email Site Audit Report",
         readOnlyHint: false,
-        destructiveHint: false,
+        // Mail leaves the system and cannot be unsent, so clients should confirm
+        // even though the recipient is pinned to the account owner.
+        destructiveHint: true,
         // Each call renders PDFs and dispatches mail — repeats are not free.
         idempotentHint: false,
         openWorldHint: true,

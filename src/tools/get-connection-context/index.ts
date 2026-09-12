@@ -20,8 +20,8 @@ class GetConnectionContextTool extends BaseTool {
         "Site Audit features its plan allows.\n\n" +
         "Call this when a result is unexpectedly empty — it distinguishes 'this organization has " +
         "no data' from 'this connection is pointed at a different organization than you meant'. " +
-        "A connection is bound to one organization, chosen during authorization; switching means " +
-        "reconnecting.\n\n" +
+        "The organization was chosen during authorization and is what every tool here defaults " +
+        "to; to work on a different one, reconnect and choose it.\n\n" +
         "Also use it before suggesting a feature: entitlements here say whether audits, recurring " +
         "monitoring, PDF export, and link preview are actually available on the plan.";
 

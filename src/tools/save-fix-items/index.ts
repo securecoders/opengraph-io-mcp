@@ -33,7 +33,7 @@ class SaveFixItemsTool extends BaseTool {
         pageUrl: z.string().describe("The page these items apply to, as audited."),
         items: z.array(z.object({
             field: z.string().describe("Which field to change, e.g. title, description, image."),
-            proposedValue: z.string().min(1).describe("The new value. Must differ from originalValue."),
+            proposedValue: z.string().describe("The new value. Required and must differ from originalValue for an edit; may be empty for a note."),
             originalValue: z.string().optional().describe("Current value, for the diff shown to a developer."),
             kind: z.enum(["edit", "note"]).optional().describe("'edit' proposes a value; 'note' records guidance."),
             recommendation: z.string().max(4000).optional().describe("Why this change is suggested."),
@@ -51,7 +51,14 @@ class SaveFixItemsTool extends BaseTool {
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) return toResult(formatError("Save Fix Items", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         // Caught here too so the agent gets the reason rather than a bare 400.
-        const noop = args.items.find((i) => i.originalValue !== undefined && i.proposedValue === i.originalValue);
+        // Notes carry guidance rather than a replacement value, so the
+        // non-empty rule applies only to edits — matching the gateway.
+        const blank = args.items.find((i) => i.kind !== "note" && i.proposedValue.trim() === "");
+        if (blank) {
+            return toResult(formatError("Save Fix Items",
+                `proposedValue for "${blank.field}" is empty. An empty value removes the entry upstream — use deleteFixItem, or set kind: "note".`));
+        }
+        const noop = args.items.find((i) => i.kind !== "note" && i.originalValue !== undefined && i.proposedValue === i.originalValue);
         if (noop) {
             return toResult(formatError("Save Fix Items",
                 `proposedValue for "${noop.field}" is identical to originalValue. Upstream treats that as a removal — use deleteFixItem to remove an entry.`));

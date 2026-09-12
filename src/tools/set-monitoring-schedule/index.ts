@@ -90,6 +90,14 @@ class SetMonitoringScheduleTool extends BaseTool {
         const { websiteId, enabled, ...schedule } = args;
         try {
             if (enabled === false) {
+                // Refuse a request that both deletes and configures — the other
+                // fields would be silently dropped, and `paused` in particular
+                // means the caller wanted the configuration kept.
+                const alsoSet = Object.keys(schedule).filter((k) => schedule[k as keyof typeof schedule] !== undefined);
+                if (alsoSet.length) {
+                    return toResult(formatError("Set Monitoring Schedule",
+                        `enabled: false removes the schedule, so ${alsoSet.join(", ")} would be discarded. Omit them, or use paused: true to keep the configuration.`));
+                }
                 await deleteSchedule(websiteId, this.organizationId, this.accessToken);
                 return toResult(formatScheduleRemoved(websiteId));
             }

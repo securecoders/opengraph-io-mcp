@@ -72,11 +72,27 @@ describe("saveFixItems", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("rejects an empty proposedValue at the schema", () => {
+  it("rejects an empty proposedValue on an edit, before calling the gateway", async () => {
+    stubFetch({ body: {} });
     const tool = new SaveFixItemsTool("tok");
-    expect(() => tool.inputSchema.parse({
+    const res: any = await tool.execute(tool.inputSchema.parse({
       auditId: "a1", pageUrl: "p", items: [{ field: "title", proposedValue: "" }],
-    })).toThrow();
+    }));
+    expect(JSON.stringify(res)).toMatch(/is empty/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("allows a note to carry no proposed value", async () => {
+    // The dashboard records notes with an empty proposedValue, and the gateway
+    // exempts them — being stricter here would put a capability out of reach.
+    stubFetch({ body: { ok: true } });
+    const tool = new SaveFixItemsTool("tok");
+    await tool.execute(tool.inputSchema.parse({
+      auditId: "a1", pageUrl: "https://x.test/a",
+      items: [{ field: "title", kind: "note", proposedValue: "", recommendation: "Shorten this." }],
+    }));
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.items[0].kind).toBe("note");
   });
 
   it("sends the page and items through on a genuine edit", async () => {
@@ -158,6 +174,7 @@ describe("deleteSiteAudit", () => {
     const tool = new DeleteSiteAuditTool("tok");
     const res: any = await tool.execute(tool.inputSchema.parse({ auditId: "other-org" }));
 
+    expect(res.isError).toBe(true);
     expect(res.structuredContent?.deleted).toBeUndefined();
     expect(JSON.stringify(res)).toMatch(/not a member/);
   });

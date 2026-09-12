@@ -112,10 +112,27 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
   previewPageAudit  — Instant synchronous single-URL audit. Returns score + issues immediately.
                        Does not consume audit page quota.
 
+  getLinkPreview    — Check how a URL will appear when shared on Facebook, Twitter/X, LinkedIn,
+                       and Google. Returns platform preview cards (title, description, image per
+                       platform), a quality score, and a list of issues to fix.
+                       Use when the user asks to "check link preview", "how does X look on social",
+                       or "check my og tags". Synchronous. Does not consume audit quota.
+                       Requires OAuth.
+
+  IMPORTANT WORKFLOW RULES:
+  1. Always ask the user their preferred scope BEFORE calling any tools:
+     whole site / core pages / specific section / codebase scan.
+  2. For "audit all": call discoverSiteUrls, then pass the complete urls array from the STRUCTURED
+     OUTPUT directly to startSiteAudit — do not re-parse URLs from the markdown display.
+  3. For "codebase scan": read route files, construct URLs, call startSiteAudit directly.
+  4. The quota is monthly (not per-audit). If the audit is clamped, tell the user how many pages
+     remain in their monthly quota and link them to the billing page to upgrade.
+  Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
+
 MONITORING (recurring audits over time):
   getConnectionContext — Which organization this connection acts for, and which Site Audit features
                        the plan allows. Call it when a result is unexpectedly empty: it separates
-                       "no data" from "wrong organization". One connection = one organization.
+                       "no data" from "wrong organization". Every tool here defaults to that org.
   listWebsites      — Websites the org has audited, with current score and trend, critical issue
                        count, regressions, and next scheduled run. Pass websiteId for one in detail.
   getMonitoringSchedule — Read a website's recurring-audit settings: frequency, anchored day/time,
@@ -141,23 +158,6 @@ DESTRUCTIVE / SENDING (confirm with the user before calling):
   emailSiteAuditReport — Sends real email with PDF attachments, EVERY time it is called. Not
                        idempotent — never retry on timeout without asking. Goes only to the
                        authenticated account's own address; a different recipient is dashboard-only.
-
-  getLinkPreview    — Check how a URL will appear when shared on Facebook, Twitter/X, LinkedIn,
-                       and Google. Returns platform preview cards (title, description, image per
-                       platform), a quality score, and a list of issues to fix.
-                       Use when the user asks to "check link preview", "how does X look on social",
-                       or "check my og tags". Synchronous. Does not consume audit quota.
-                       Requires OAuth.
-
-  IMPORTANT WORKFLOW RULES:
-  1. Always ask the user their preferred scope BEFORE calling any tools:
-     whole site / core pages / specific section / codebase scan.
-  2. For "audit all": call discoverSiteUrls, then pass the complete urls array from the STRUCTURED
-     OUTPUT directly to startSiteAudit — do not re-parse URLs from the markdown display.
-  3. For "codebase scan": read route files, construct URLs, call startSiteAudit directly.
-  4. The quota is monthly (not per-audit). If the audit is clamped, tell the user how many pages
-     remain in their monthly quota and link them to the billing page to upgrade.
-  Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
 
 IMAGE GENERATION TOOLS:
   generateImage, iterateImage, inspectImageSession, exportImageAsset — create and refine diagrams,
@@ -934,7 +934,7 @@ startSiteAudit({
 
 ---
 
-## Step 3 — Poll status every 5–10 seconds
+## Step 3 — Poll status every 10–15 seconds
 
 \`\`\`
 getSiteAuditStatus({ auditId: "<auditId>" })

@@ -39,9 +39,8 @@ class ListWebsitesTool extends BaseTool {
             "Return this one website in detail instead of the list.",
         ),
         q: z.string().optional().describe("Filter by domain substring."),
-        health: z.string().optional().describe(
-            "Filter by health status, e.g. HEALTHY, NEEDS_ATTENTION, CRITICAL_REGRESSIONS.",
-        ),
+        health: z.enum(["HEALTHY", "NEEDS_ATTENTION", "CRITICAL_REGRESSIONS", "AUDIT_RUNNING", "MONITORING_PAUSED"])
+            .optional().describe("Filter by health status."),
         monitoring: z.string().optional().describe(
             "Filter by monitoring state — whether a recurring schedule is configured.",
         ),
