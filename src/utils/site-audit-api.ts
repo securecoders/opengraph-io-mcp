@@ -78,7 +78,7 @@ function toQuery(params: Record<string, unknown> = {}): string {
 }
 
 async function apiRequest<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     accessToken: string,
     body?: unknown,
@@ -114,7 +114,11 @@ async function apiRequest<T>(
         throw err;
     }
 
-    return response.json() as Promise<T>;
+    // Deletes answer 204 with no body; calling .json() on that throws.
+    if (response.status === 204) return undefined as T;
+    const text = await response.text();
+    if (!text) return undefined as T;
+    return JSON.parse(text) as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,3 +269,71 @@ export const getAuditPriorities = async (
     accessToken: string,
 ): Promise<any> =>
     apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/priorities`, accessToken);
+
+// ---------------------------------------------------------------------------
+// Website health and recurring monitoring
+// ---------------------------------------------------------------------------
+
+export interface ListWebsitesParams {
+    limit?:      number;
+    offset?:     number;
+    q?:          string;
+    sort?:       string;
+    health?:     string;
+    monitoring?: string;
+}
+
+/** Websites the org has audited, with denormalized health signals. */
+export const listWebsites = async (
+    organizationId: string,
+    accessToken: string,
+    params: ListWebsitesParams = {},
+): Promise<any> =>
+    apiRequest("GET", "/api/v1/site-audit/websites", accessToken, undefined, {
+        organizationId,
+        ...params,
+    });
+
+export const getWebsite = async (
+    websiteId: string,
+    organizationId: string,
+    accessToken: string,
+): Promise<any> =>
+    apiRequest("GET", `/api/v1/site-audit/websites/${websiteId}`, accessToken, undefined, { organizationId });
+
+export const getSchedule = async (
+    websiteId: string,
+    organizationId: string,
+    accessToken: string,
+): Promise<any> =>
+    apiRequest("GET", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, undefined, { organizationId });
+
+/**
+ * Create or replace a website's recurring-audit schedule.
+ *
+ * organizationId travels in the BODY here, unlike the sibling reads which take
+ * it as a query parameter. `recipients` is deliberately absent — the gateway
+ * rejects it on a bearer connection.
+ */
+export const putSchedule = async (
+    websiteId: string,
+    organizationId: string,
+    accessToken: string,
+    schedule: Record<string, unknown>,
+): Promise<any> =>
+    apiRequest("PUT", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, {
+        organizationId,
+        ...schedule,
+    });
+
+/** Remove a schedule entirely. Answers 204. */
+export const deleteSchedule = async (
+    websiteId: string,
+    organizationId: string,
+    accessToken: string,
+): Promise<void> =>
+    apiRequest("DELETE", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, undefined, { organizationId });
+
+/** Org identity and site-audit entitlements for the connected token. */
+export const getConnectionContext = async (accessToken: string): Promise<any> =>
+    apiRequest("GET", "/api/v1/site-audit/context", accessToken);
