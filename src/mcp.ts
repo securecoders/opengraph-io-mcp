@@ -56,8 +56,10 @@ getOgData
 
 getOgMarkdown
   Convert a URL's HTML to clean, readable Markdown — strips navigation, ads, and boilerplate.
-  IMPORTANT: auto_render does not apply to the markdown pipeline. For JavaScript-heavy SPAs you
-  must explicitly pass full_render: true, or you may receive an empty or incomplete result.
+  For a long page, pass query + chunking:true to get back only the passages that answer your
+  question, ranked by relevance, instead of the whole document. include_links / include_images /
+  include_headings return structured link, image and outline data without a second scrape.
+  Set ai_sanitize:true when the text will be fed to a model — it reports prompt-injection risk.
 
 getOgScrapeData
   Fetch the raw HTML of a URL. Use for custom parsing, link extraction, or when you need the
