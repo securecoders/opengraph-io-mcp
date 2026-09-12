@@ -1052,3 +1052,172 @@ export function formatAuditChanges(
         structured: { auditId, diff: diff ?? null, priorities: priorities ?? null, degraded: degraded ?? null },
     };
 }
+
+// ---------------------------------------------------------------------------
+// Website health + monitoring
+// ---------------------------------------------------------------------------
+
+const WEBSITE_STATUS_LABEL: Record<string, string> = {
+    HEALTHY:             'Healthy',
+    NEEDS_ATTENTION:     'Needs attention',
+    CRITICAL_REGRESSIONS:'Critical regressions',
+    AUDIT_RUNNING:       'Audit running',
+    MONITORING_PAUSED:   'Monitoring paused',
+};
+
+function trendArrow(current?: number | null, previous?: number | null): string {
+    if (current == null || previous == null) return '';
+    const delta = current - previous;
+    if (delta === 0) return ' (no change)';
+    return delta > 0 ? ` (+${delta})` : ` (${delta})`;
+}
+
+export function formatWebsiteList(result: any, filters: Record<string, unknown> = {}): FormatResult {
+    const websites = result?.websites ?? result?.items ?? [];
+    const applied = Object.entries(filters)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${k}: ${v}`);
+
+    if (!websites.length) {
+        return {
+            markdown: [
+                `## Monitored Websites`, '',
+                applied.length
+                    ? `No websites matched — ${applied.join(', ')}.`
+                    : `No websites yet. Run **startSiteAudit** on a domain and it will appear here.`,
+            ].join('\n'),
+            structured: { websites: [], total: result?.total ?? 0 },
+        };
+    }
+
+    const rows = websites.map((w: any) => [
+        `\`${w.id}\``,
+        w.displayDomain || w.canonicalDomain || '—',
+        WEBSITE_STATUS_LABEL[w.status] || w.status || '—',
+        w.currentScore != null ? `${w.currentScore}${trendArrow(w.currentScore, w.previousScore)}` : '—',
+        w.criticalIssueCount ?? '—',
+        w.regressionCount ?? '—',
+        w.nextScheduledAt ? shortDate(w.nextScheduledAt) : 'not monitored',
+    ].join(' | '));
+
+    return {
+        markdown: [
+            `## Monitored Websites`, '',
+            metaLine([`${websites.length} websites`, ...applied]),
+            '',
+            `Website ID | Domain | Status | Score | Critical | Regressed | Next run`,
+            `--- | --- | --- | --- | --- | --- | ---`,
+            ...rows,
+            '',
+            `${CHECK} Pass a Website ID to **getMonitoringSchedule**, or to **listSiteAudits** as \`websiteId\` for that site's history.`,
+        ].join('\n'),
+        structured: { websites, total: result?.total ?? websites.length },
+    };
+}
+
+export function formatWebsiteDetail(result: any): FormatResult {
+    const w = result?.website ?? result;
+    const lines = [
+        `## ${w.displayDomain || w.canonicalDomain || 'Website'}`,
+        `\`${w.id}\``,
+        '',
+        metaLine([
+            WEBSITE_STATUS_LABEL[w.status] || w.status,
+            w.currentScore != null ? `score ${w.currentScore}${trendArrow(w.currentScore, w.previousScore)}` : null,
+            w.knownPageCount != null ? `${w.knownPageCount} known pages` : null,
+        ].filter(Boolean) as string[]),
+        '',
+        `Critical issues: ${w.criticalIssueCount ?? '—'} · Regressed: ${w.regressionCount ?? '—'} · Recently fixed: ${w.recentlyFixedCount ?? '—'}`,
+        '',
+        w.lastAuditAt ? `Last audit: ${shortDate(w.lastAuditAt)}` : 'No audits yet.',
+        w.nextScheduledAt ? `Next scheduled: ${shortDate(w.nextScheduledAt)}` : 'Not monitored — use **setMonitoringSchedule** to start.',
+    ];
+    return { markdown: lines.join('\n'), structured: { website: w } };
+}
+
+function scheduleSummary(sch: any): string[] {
+    if (!sch) return ['Not monitored.'];
+    const when = sch.frequency === 'MONTHLY'
+        ? `monthly${sch.dayOfMonth != null ? ` on day ${sch.dayOfMonth}` : ''}`
+        : `weekly${sch.dayOfWeek != null ? ` on day ${sch.dayOfWeek} (0=Sun)` : ''}`;
+    const time = sch.runHour != null
+        ? ` at ${String(sch.runHour).padStart(2, '0')}:${String(sch.runMinute ?? 0).padStart(2, '0')}${sch.timezone ? ` ${sch.timezone}` : ''}`
+        : '';
+    return [
+        `Runs **${when}${time}**.`,
+        sch.pausedAt ? `**Paused** since ${shortDate(sch.pausedAt)}.` : null,
+        sch.nextRunAt ? `Next run: ${shortDate(sch.nextRunAt)}.` : null,
+        metaLine([
+            sch.includeNewPages ? 'includes new pages' : 'fixed page set',
+            sch.autoAdvanceBaseline ? 'baseline auto-advances' : 'baseline pinned',
+            sch.pageScopeMode ? `scope ${sch.pageScopeMode}` : null,
+            sch.notificationMode ? `alerts ${sch.notificationMode}` : null,
+        ].filter(Boolean) as string[]),
+    ].filter(Boolean) as string[];
+}
+
+export function formatSchedule(websiteId: string, result: any): FormatResult {
+    const sch = result?.schedule ?? result ?? null;
+    const active = sch && Object.keys(sch).length > 0;
+    return {
+        markdown: [
+            `## Monitoring Schedule`,
+            `Website \`${websiteId}\``,
+            '',
+            ...(active ? scheduleSummary(sch) : ['Not monitored. Use **setMonitoringSchedule** to start recurring audits.']),
+        ].join('\n'),
+        structured: { websiteId, schedule: active ? sch : null },
+    };
+}
+
+export function formatScheduleSaved(websiteId: string, result: any): FormatResult {
+    const sch = result?.schedule ?? result ?? null;
+    return {
+        markdown: [
+            `## Monitoring Updated`,
+            `Website \`${websiteId}\``,
+            '',
+            ...scheduleSummary(sch),
+            '',
+            `${CHECK} Each run consumes page quota. Alert recipients are managed in the dashboard.`,
+        ].join('\n'),
+        structured: { websiteId, schedule: sch, enabled: true },
+    };
+}
+
+export function formatScheduleRemoved(websiteId: string): FormatResult {
+    return {
+        markdown: [
+            `## Monitoring Disabled`,
+            `Website \`${websiteId}\``,
+            '',
+            `Recurring audits are off and the schedule configuration has been removed.`,
+            `Re-enabling means setting frequency and timing again.`,
+        ].join('\n'),
+        structured: { websiteId, schedule: null, enabled: false },
+    };
+}
+
+export function formatConnectionContext(ctx: any): FormatResult {
+    const ent = ctx?.entitlements ?? {};
+    const enabled  = Object.entries(ent).filter(([, v]) => v).map(([k]) => k);
+    const disabled = Object.entries(ent).filter(([, v]) => !v).map(([k]) => k);
+    return {
+        markdown: [
+            `## Connection`,
+            '',
+            `Organization: **${ctx?.organizationName || ctx?.organizationId || 'unknown'}**`,
+            `\`${ctx?.organizationId ?? ''}\``,
+            '',
+            enabled.length  ? `Available: ${enabled.join(', ')}` : `No site-audit features are enabled on this plan.`,
+            disabled.length ? `Not on this plan: ${disabled.join(', ')}` : null,
+            '',
+            `This connection is scoped to the organization above. To work with a different one, reconnect and choose it during authorization.`,
+        ].filter((l) => l !== null).join('\n'),
+        structured: {
+            organizationId:   ctx?.organizationId ?? null,
+            organizationName: ctx?.organizationName ?? null,
+            entitlements:     ent,
+        },
+    };
+}

@@ -112,6 +112,19 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
   previewPageAudit  — Instant synchronous single-URL audit. Returns score + issues immediately.
                        Does not consume audit page quota.
 
+MONITORING (recurring audits over time):
+  getConnectionContext — Which organization this connection acts for, and which Site Audit features
+                       the plan allows. Call it when a result is unexpectedly empty: it separates
+                       "no data" from "wrong organization". One connection = one organization.
+  listWebsites      — Websites the org has audited, with current score and trend, critical issue
+                       count, regressions, and next scheduled run. Pass websiteId for one in detail.
+  getMonitoringSchedule — Read a website's recurring-audit settings: frequency, anchored day/time,
+                       paused state, next run.
+  setMonitoringSchedule — Turn recurring audits on/off or change them. COMMITS ONGOING QUOTA SPEND
+                       and can trigger alert email, so confirm with the user first. enabled:false
+                       DELETES the configuration — use paused:true to keep it. Alert recipients are
+                       dashboard-only. Needs the scheduling entitlement.
+
   getLinkPreview    — Check how a URL will appear when shared on Facebook, Twitter/X, LinkedIn,
                        and Google. Returns platform preview cards (title, description, image per
                        platform), a quality score, and a list of issues to fix.

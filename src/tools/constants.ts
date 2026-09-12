@@ -17,6 +17,10 @@ export enum ToolNames {
     GET_SITE_AUDIT_REPORT = "getSiteAuditReport",
     LIST_SITE_AUDITS = "listSiteAudits",
     GET_SITE_AUDIT_CHANGES = "getSiteAuditChanges",
+    LIST_WEBSITES = "listWebsites",
+    GET_MONITORING_SCHEDULE = "getMonitoringSchedule",
+    SET_MONITORING_SCHEDULE = "setMonitoringSchedule",
+    GET_CONNECTION_CONTEXT = "getConnectionContext",
     PREVIEW_PAGE_AUDIT = "previewPageAudit",
     GET_LINK_PREVIEW = "getLinkPreview",
 }
