@@ -316,41 +316,89 @@ export function formatExtract(url: string, payload: ExtractPayload): FormatResul
 // ---------------------------------------------------------------------------
 
 export interface MarkdownPayload {
-    markdown:      string;
+    markdown?:  string;
+    metadata?:  Record<string, any>;
+    usage?:     Record<string, any>;
+    chunks?:    Array<Record<string, any>>;
+    headings?:  Array<Record<string, any>>;
+    links?:     Array<Record<string, any>>;
+    images?:    Array<Record<string, any>>;
+    ai_safety?: Record<string, any> | null;
+    debug?:     Record<string, any>;
+    request_id?: string;
     onlyMainContent?: boolean;
-    requestInfo?:  any;
+}
+
+/** Chunk list preview — shown instead of prose when ranking was requested. */
+function chunkPreview(chunks: Array<Record<string, any>>): string {
+    return chunks.map((c, i) => {
+        const path  = Array.isArray(c.heading_path) && c.heading_path.length
+            ? c.heading_path.join(' › ') : null;
+        const score = typeof c.relevance_score === 'number'
+            ? ` · relevance ${c.relevance_score.toFixed(2)}` : '';
+        return [
+            `### Chunk ${c.position ?? i}${score}`,
+            path ? `*${path}*` : null,
+            '',
+            String(c.text ?? ''),
+        ].filter(Boolean).join('\n');
+    }).join('\n\n');
 }
 
 export function formatMarkdown(url: string, payload: MarkdownPayload): FormatResult {
-    const { markdown: content, onlyMainContent, requestInfo } = payload;
-    const domain   = domainFromUrl(url);
-    const isCached = requestInfo?.is_cache;
+    const { markdown: content, metadata, usage, chunks, headings, links, images,
+            ai_safety, debug, request_id, onlyMainContent } = payload;
+    const domain = domainFromUrl(url);
+
+    const chars  = usage?.output_character_count ?? usage?.character_count ?? content?.length ?? 0;
+    const tokens = usage?.output_estimated_token_count ?? usage?.estimated_token_count;
 
     const meta = metaLine([
-        `${content.length.toLocaleString()} chars`,
+        `${Number(chars).toLocaleString()} chars`,
+        tokens ? `~${Number(tokens).toLocaleString()} tokens` : null,
         onlyMainContent !== false ? 'main content' : 'full page',
-        isCached !== undefined ? freshnessLabel(isCached) : null,
+        usage?.truncated ? `truncated (${usage.truncation_reason ?? 'limit'})` : null,
+        chunks?.length ? `${chunks.length} chunks` : null,
+        debug?.proxy_used ? `via ${debug.proxy_used}` : null,
+        debug?.full_render_used ? 'rendered' : null,
     ]);
 
-    // The markdown response from og-api IS the content — pass it through with
-    // a branded header block, then truncate if needed.
+    // Content was fetched from an arbitrary page, so a detected injection attempt
+    // is the first thing the reader needs — not a footnote.
+    const risk = ai_safety?.risk_level;
+    const safetyNote = (risk === 'medium' || risk === 'high')
+        ? `> ⚠️ **Prompt-injection risk: ${risk}** (score ${ai_safety?.risk_score ?? '?'}).`
+          + (ai_safety?.content_sanitized ? ' Content was sanitized.' : ' Content was NOT modified.')
+        : null;
+
+    const title = metadata?.title ? `**${metadata.title}**` : null;
+    const body  = chunks?.length ? chunkPreview(chunks) : (content ?? '_No Markdown content returned._');
+
     const markdown = truncate(
         [
             `## Markdown`,
             `**${domain}**`,
+            title,
             '',
             meta,
+            safetyNote,
             '',
             '---',
             '',
-            content,
-        ].join('\n'),
+            body,
+        ].filter((l) => l !== null).join('\n'),
         CAP_MARKDOWN,
     );
 
     return {
         markdown,
-        structured: { url, markdown: content, length: content.length, onlyMainContent, requestInfo },
+        structured: {
+            url,
+            markdown: content ?? '',
+            length: Number(chars) || 0,
+            onlyMainContent,
+            metadata, usage, chunks, headings, links, images, ai_safety, debug, request_id,
+        },
     };
 }
 

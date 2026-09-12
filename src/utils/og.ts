@@ -110,6 +110,46 @@ export interface MarkdownOptions extends CommonOgOptions {
     exclude_tags?: string[];
     /** Strip nav/header/footer/ads heuristics. Defaults to true server-side. */
     only_main_content?: boolean;
+    /** Truncate the returned Markdown to this many characters. */
+    max_chars?: number;
+    // Chunking (server-side; requires the JSON envelope, which this client always requests)
+    chunking?: boolean;
+    chunk_size?: number;
+    chunk_overlap?: number;
+    heading_aware?: boolean;
+    heading_aware_level?: number;
+    max_chunks?: number;
+    /** Natural-language question — ranks chunks by relevance (BM25). Requires chunking. */
+    query?: string;
+    query_top_k?: number;
+    // Structure extraction
+    include_links?: boolean;
+    include_images?: boolean;
+    include_headings?: boolean;
+    // Envelope section toggles
+    include_markdown?: boolean;
+    include_metadata?: boolean;
+    include_ai_safety?: boolean;
+    include_chunks?: boolean;
+    // Additional render controls
+    load_more_item_selector?: string;
+    load_more_scroll?: boolean;
+}
+
+/** The v3 markdown JSON envelope. Every section but `usage` is conditional. */
+export interface MarkdownResult {
+    markdown?:  string;
+    metadata?:  Record<string, any>;
+    usage?:     Record<string, any>;
+    chunks?:    Array<Record<string, any>>;
+    headings?:  Array<Record<string, any>>;
+    links?:     Array<Record<string, any>>;
+    images?:    Array<Record<string, any>>;
+    ai_safety?: Record<string, any> | null;
+    debug?:     Record<string, any>;
+    request_id?: string;
+    tables_detected?: boolean;
+    code_blocks_detected?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -302,19 +342,34 @@ export const getSiteMarkdown = async (
     url: string,
     app_id?: string,
     options: MarkdownOptions = {},
-): Promise<string> => {
+): Promise<MarkdownResult> => {
     const actualAppId = getAppId(app_id);
     if (!actualAppId) {
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
-    const qs = buildQueryParams(options, actualAppId);
+    // format is fixed by this client, not the caller: the structured envelope is
+    // what lets the tool surface metadata, usage and safety alongside the prose.
+    const qs = buildQueryParams({ ...options, format: 'json' }, actualAppId);
     const response = await fetch(
         `${getBaseUrl()}/api/${API_VERSIONS.markdown}/markdown/${encodeURIComponent(url)}?${qs}`,
-        { headers: { "Referrer": "mcp" } },
+        { headers: { "Referrer": "mcp", "Accept": "application/json" } },
     );
+
+    const body = await response.text();
     if (!response.ok) {
-        const body = await response.text();
+        // ai_sanitize_mode:'block' answers 422 with a JSON error describing why.
         throw new Error(`Markdown API request failed: ${response.status} ${response.statusText}${body ? ` — ${body}` : ''}`);
     }
-    return response.text();
+
+    // An og-api deployment that predates the JSON envelope still answers
+    // text/markdown. Treat the body as prose rather than throwing on parse.
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("json")) {
+        return { markdown: body };
+    }
+    try {
+        return JSON.parse(body) as MarkdownResult;
+    } catch {
+        return { markdown: body };
+    }
 };
