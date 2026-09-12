@@ -66,13 +66,25 @@ export interface PreviewResult {
 // HTTP helper
 // ---------------------------------------------------------------------------
 
+/** Drops undefined/null/empty entries so optional filters don't become "undefined". */
+function toQuery(params: Record<string, unknown> = {}): string {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === "") continue;
+        qs.set(key, Array.isArray(value) ? value.join(",") : String(value));
+    }
+    const out = qs.toString();
+    return out ? `?${out}` : "";
+}
+
 async function apiRequest<T>(
     method: "GET" | "POST",
     path: string,
     accessToken: string,
     body?: unknown,
+    query?: Record<string, unknown>,
 ): Promise<T> {
-    const url = `${getSiteAuditBaseUrl()}${path}`;
+    const url = `${getSiteAuditBaseUrl()}${path}${toQuery(query)}`;
     const headers: Record<string, string> = {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -202,3 +214,54 @@ export const previewPage = async (
         organizationId,
         url,
     });
+
+// ---------------------------------------------------------------------------
+// History and change reporting
+// ---------------------------------------------------------------------------
+
+export interface ListAuditsParams {
+    limit?:     number;
+    offset?:    number;
+    q?:         string;
+    status?:    string[];
+    from?:      string;
+    to?:        string;
+    sort?:      string;
+    websiteId?: string;
+}
+
+export interface ListAuditsResult {
+    audits: AuditSummary[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+}
+
+/**
+ * Page through an organization's past audits. The gateway answers
+ * 400 MISSING_ORG_ID without an organizationId, so it is always sent.
+ */
+export const listAudits = async (
+    organizationId: string,
+    accessToken: string,
+    params: ListAuditsParams = {},
+): Promise<ListAuditsResult> =>
+    apiRequest("GET", "/api/v1/site-audit/audits", accessToken, undefined, {
+        organizationId,
+        ...params,
+    });
+
+/** Issue-level change report for an audit against its baseline. */
+export const getAuditDiff = async (
+    auditId: string,
+    accessToken: string,
+    baseline?: string,
+): Promise<any> =>
+    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/diff`, accessToken, undefined, { baseline });
+
+/** Issues grouped into fix-first / fix-as-pattern / review-next / low-priority. */
+export const getAuditPriorities = async (
+    auditId: string,
+    accessToken: string,
+): Promise<any> =>
+    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/priorities`, accessToken);
