@@ -97,7 +97,15 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
                        crawl. URLs can come from discoverSiteUrls, a codebase route scan, a sitemap,
                        or a manually provided list — discoverSiteUrls is NOT required first.
                        Returns an auditId immediately.
-  getSiteAuditStatus — Poll progress (QUEUED → CRAWLING → SCORING → COMPLETE). Call every 5–10s.
+  getSiteAuditStatus — Poll progress (QUEUED → CRAWLING → SCORING → COMPLETE). Call every 10–15s;
+                       a full audit takes minutes, and each poll costs the caller a turn.
+  listSiteAudits    — Past audits for the organization, newest first. Filter by domain (q), status,
+                       date range, or websiteId to build one site's history. Use it to find an
+                       auditId, or to track a score over time.
+  getSiteAuditChanges — What changed since the previous run, plus what to fix first. Combines the
+                       change report (new / fixed / regressed issues, pages added or removed, score
+                       delta) with the prioritized groups. A 'regressed' issue previously verified
+                       as fixed and came back — tracked across runs, not by diffing two lists.
   getSiteAuditReport — Retrieve the full report once COMPLETE: overall score 0–100, AI-generated
                        executive summary, top priorities, critical issues with business impact,
                        per-page scores and check breakdowns, OG coverage rates.

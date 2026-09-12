@@ -16,6 +16,8 @@ import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
 import StartSiteAuditTool from "@/tools/start-site-audit";
 import GetSiteAuditStatusTool from "@/tools/get-site-audit-status";
 import GetSiteAuditReportTool from "@/tools/get-site-audit-report";
+import ListSiteAuditsTool from "@/tools/list-site-audits";
+import GetSiteAuditChangesTool from "@/tools/get-site-audit-changes";
 import PreviewPageAuditTool from "@/tools/preview-page-audit";
 import GetLinkPreviewTool from "@/tools/get-link-preview";
 
@@ -56,6 +58,8 @@ const REGISTRY: Record<ToolNames, ToolRegistration> = {
   [ToolNames.START_SITE_AUDIT]:      { create: (c) => new StartSiteAuditTool(c.accessToken, c.organizationId) },
   [ToolNames.GET_SITE_AUDIT_STATUS]: { create: (c) => new GetSiteAuditStatusTool(c.accessToken) },
   [ToolNames.GET_SITE_AUDIT_REPORT]: { create: (c) => new GetSiteAuditReportTool(c.accessToken) },
+  [ToolNames.LIST_SITE_AUDITS]:       { create: (c) => new ListSiteAuditsTool(c.accessToken, c.organizationId) },
+  [ToolNames.GET_SITE_AUDIT_CHANGES]: { create: (c) => new GetSiteAuditChangesTool(c.accessToken) },
   [ToolNames.PREVIEW_PAGE_AUDIT]:    { create: (c) => new PreviewPageAuditTool(c.accessToken, c.organizationId) },
   [ToolNames.GET_LINK_PREVIEW]:      { create: (c) => new GetLinkPreviewTool(c.accessToken, c.organizationId) },
 };

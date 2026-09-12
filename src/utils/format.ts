@@ -912,3 +912,143 @@ export function formatError(toolTitle: string, reason: string): FormatResult {
         isError:    true,
     };
 }
+
+// ---------------------------------------------------------------------------
+// Audit history
+// ---------------------------------------------------------------------------
+
+function shortDate(iso?: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);
+}
+
+export function formatAuditList(
+    result: { audits: AuditSummary[]; total?: number; limit?: number; offset?: number },
+    filters: Record<string, unknown> = {},
+): FormatResult {
+    const audits = result.audits || [];
+    const applied = Object.entries(filters)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('/') : v}`);
+
+    if (audits.length === 0) {
+        return {
+            markdown: [
+                `## Site Audit History`,
+                '',
+                applied.length
+                    ? `No audits matched — ${applied.join(', ')}.`
+                    : `No audits yet for this organization.`,
+            ].join('\n'),
+            structured: { audits: [], total: result.total ?? 0 },
+        };
+    }
+
+    const rows = audits.map((a) => [
+        `\`${a.id}\``,
+        a.domain,
+        AUDIT_STATUS_LABEL[a.status] || a.status,
+        a.score != null ? String(a.score) : '—',
+        a.totalIssues != null ? String(a.totalIssues) : '—',
+        shortDate(a.completedAt || a.createdAt),
+    ].join(' | '));
+
+    const shown = result.offset != null && result.total != null
+        ? `${result.offset + 1}–${result.offset + audits.length} of ${result.total}`
+        : `${audits.length}`;
+
+    return {
+        markdown: [
+            `## Site Audit History`,
+            '',
+            metaLine([`${shown} audits`, ...applied]),
+            '',
+            `Audit ID | Domain | Status | Score | Issues | Date`,
+            `--- | --- | --- | --- | --- | ---`,
+            ...rows,
+            '',
+            `${CHECK} Pass an Audit ID to **getSiteAuditReport** for full results, or **getSiteAuditChanges** to see what moved since the previous run.`,
+        ].join('\n'),
+        structured: {
+            audits,
+            total:  result.total ?? audits.length,
+            limit:  result.limit,
+            offset: result.offset,
+        },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Change report + prioritization
+// ---------------------------------------------------------------------------
+
+const PRIORITY_LABEL: Record<string, string> = {
+    fix_first:      'Fix first',
+    fix_as_pattern: 'Fix as a pattern',
+    review_next:    'Review next',
+    low_priority:   'Low priority',
+};
+
+function issueLine(i: Record<string, any>): string {
+    const page = i.pageKey || i.pageUrl || '';
+    const sev  = i.severity ? `**${i.severity}**` : '';
+    const code = i.issueCode || i.checkKey || 'issue';
+    const pattern = i.patternCount > 1 ? ` _(on ${i.patternCount} pages)_` : '';
+    return `- ${sev} \`${code}\`${page ? ` — ${page}` : ''}${pattern}`;
+}
+
+export function formatAuditChanges(
+    auditId: string,
+    diff: any,
+    priorities: any,
+    degraded?: string,
+): FormatResult {
+    const lines: string[] = [`## What Changed`, `Audit \`${auditId}\``, ''];
+
+    if (degraded) {
+        // One half of the merged call failed; say so rather than implying the
+        // missing section is empty.
+        lines.push(`> ⚠️ ${degraded}`, '');
+    }
+
+    if (diff) {
+        const delta = typeof diff.scoreDelta === 'number'
+            ? (diff.scoreDelta > 0 ? `+${diff.scoreDelta}` : String(diff.scoreDelta))
+            : null;
+        lines.push(metaLine([
+            delta ? `score ${delta}` : null,
+            `${diff.new?.length ?? 0} new`,
+            `${diff.regressed?.length ?? 0} regressed`,
+            `${diff.fixed?.length ?? 0} fixed`,
+            diff.baselineAuditId ? `vs \`${diff.baselineAuditId}\`` : 'no baseline',
+        ].filter(Boolean) as string[]), '');
+
+        if (diff.regressed?.length) {
+            lines.push(`### Regressed`, ...diff.regressed.slice(0, 15).map(issueLine), '');
+        }
+        if (diff.new?.length) {
+            lines.push(`### New`, ...diff.new.slice(0, 15).map(issueLine), '');
+        }
+        if (diff.pagesAdded?.length || diff.pagesRemoved?.length) {
+            lines.push(metaLine([
+                diff.pagesAdded?.length ? `${diff.pagesAdded.length} pages added` : null,
+                diff.pagesRemoved?.length ? `${diff.pagesRemoved.length} pages removed` : null,
+            ].filter(Boolean) as string[]), '');
+        }
+    }
+
+    if (priorities?.groups) {
+        lines.push(`### Priorities`);
+        for (const key of ['fix_first', 'fix_as_pattern', 'review_next', 'low_priority']) {
+            const group = priorities.groups[key] || [];
+            if (!group.length) continue;
+            lines.push('', `**${PRIORITY_LABEL[key]}** (${group.length})`, ...group.slice(0, 10).map(issueLine));
+        }
+    }
+
+    return {
+        markdown: lines.join('\n'),
+        structured: { auditId, diff: diff ?? null, priorities: priorities ?? null, degraded: degraded ?? null },
+    };
+}

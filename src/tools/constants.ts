@@ -15,6 +15,8 @@ export enum ToolNames {
     START_SITE_AUDIT = "startSiteAudit",
     GET_SITE_AUDIT_STATUS = "getSiteAuditStatus",
     GET_SITE_AUDIT_REPORT = "getSiteAuditReport",
+    LIST_SITE_AUDITS = "listSiteAudits",
+    GET_SITE_AUDIT_CHANGES = "getSiteAuditChanges",
     PREVIEW_PAGE_AUDIT = "previewPageAudit",
     GET_LINK_PREVIEW = "getLinkPreview",
 }
