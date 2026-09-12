@@ -14,7 +14,10 @@ describe("server instructions", () => {
 
   it("names no tool that is not registered", () => {
     // Catches a tool that was renamed or removed but left in the prose.
-    const mentioned = SERVER_INSTRUCTIONS.match(/\b(?:get|start|discover|preview|generate|iterate|inspect|export)[A-Z]\w+/g) ?? [];
+    // Tool-table lines are "  toolName — description". Matching on that shape
+    // rather than a prefix list, which silently stopped covering new verbs
+    // (list*, save*, delete*, set*, email*) as tools were added.
+    const mentioned = SERVER_INSTRUCTIONS.match(/^\s{2}([a-z][a-zA-Z]{3,})(?=\s+—)/gm)?.map((m) => m.trim()) ?? [];
     const stale = [...new Set(mentioned)].filter((n) => !registeredToolNames.includes(n as never));
     expect(stale, `names in SERVER_INSTRUCTIONS with no registered tool: ${stale.join(", ")}`).toEqual([]);
   });
