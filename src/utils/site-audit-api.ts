@@ -253,9 +253,11 @@ export const listAudits = async (
     accessToken: string,
     params: ListAuditsParams = {},
 ): Promise<ListAuditsResult> =>
+    // organizationId last: the token's org must win even if a caller's params
+    // carry one, so tenant pinning does not depend on zod stripping the key.
     apiRequest("GET", "/api/v1/site-audit/audits", accessToken, undefined, {
-        organizationId,
         ...params,
+        organizationId,
     });
 
 /** Issue-level change report for an audit against its baseline. */
@@ -293,8 +295,8 @@ export const listWebsites = async (
     params: ListWebsitesParams = {},
 ): Promise<any> =>
     apiRequest("GET", "/api/v1/site-audit/websites", accessToken, undefined, {
-        organizationId,
         ...params,
+        organizationId,
     });
 
 export const getWebsite = async (
