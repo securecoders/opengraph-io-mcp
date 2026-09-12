@@ -1,10 +1,11 @@
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { randomUUID } from "node:crypto";
-import express, { type Request, type Response } from "express";
-import { createServer } from "./mcp.js";
+import express from "express";
 import dotenv from "dotenv";
-import { setAuthContext, deleteAppId, type AuthContext } from "@/utils/sessionIdToAppId";
-import { verifyAccessToken } from "@/utils/oauth";
+import {
+  handleProtectedResource,
+  handlePost,
+  handleGet,
+  handleDelete,
+} from "@/http/handlers";
 
 dotenv.config();
 
@@ -12,13 +13,19 @@ const app = express();
 
 app.use(express.json());
 
-// CORS: reflect the request origin back so Chromium-based clients (Cursor,
-// Claude Desktop, etc.) can read responses even when using credentials mode.
-// The real security gate is the Bearer token check, not CORS.
+// Origin is reflected by default. Safe because auth is an Authorization header,
+// never a cookie, so a cross-origin page cannot forge another user's credential.
+// Set MCP_ALLOWED_ORIGINS to restrict to named origins.
+const ALLOWED_ORIGINS = (process.env.MCP_ALLOWED_ORIGINS || "")
+  .split(",").map((o) => o.trim()).filter(Boolean);
+
 app.use((req, res, next) => {
   const origin = (req.headers["origin"] as string | undefined) ?? "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -32,157 +39,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// ---------------------------------------------------------------------------
-// OAuth 2.1 protected-resource metadata (RFC 9728)
-// ---------------------------------------------------------------------------
-
-const MCP_RESOURCE_URL =
-  process.env.MCP_RESOURCE_URL || "https://mcp.opengraph.io/mcp";
-const AUTH_SERVER_URL =
-  process.env.OAUTH_ISSUER || "https://dashboard-api.opengraph.io";
-
-app.get("/.well-known/oauth-protected-resource", (_req, res) => {
-  res.json({
-    resource:                 MCP_RESOURCE_URL,
-    authorization_servers:    [AUTH_SERVER_URL],
-    bearer_methods_supported: ["header"],
-    scopes_supported:         ["mcp"],
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Session store
-// ---------------------------------------------------------------------------
-
-interface SessionEntry {
-  transport: StreamableHTTPServerTransport;
-  cleanup: () => Promise<void>;
-}
-
-const sessions = new Map<string, SessionEntry>();
-
-// ---------------------------------------------------------------------------
-// Auth helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Attempt to extract credentials from the request.
- * Returns an AuthContext on success, null if credentials are absent or invalid.
- */
-async function extractAuth(req: Request): Promise<AuthContext | null> {
-  const authorization = req.headers["authorization"] as string | undefined;
-
-  if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
-    const rawToken = authorization.slice(7).trim();
-    try {
-      const claims = await verifyAccessToken(rawToken);
-      return {
-        appId:          claims.appId,
-        organizationId: claims.organizationId,
-        scope:          claims.scope,
-        accessToken:    rawToken,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  // Legacy fallback: x-app-id header
-  const legacyAppId = req.headers["x-app-id"] as string | undefined;
-  if (legacyAppId) {
-    return { appId: legacyAppId };
-  }
-
-  return null;
-}
-
-function sendUnauthorized(res: Response): void {
-  const metaBase = MCP_RESOURCE_URL.replace(/\/mcp$/, "");
-  res.setHeader(
-    "WWW-Authenticate",
-    `Bearer resource_metadata="${metaBase}/.well-known/oauth-protected-resource"`,
-  );
-  res.status(401).json({
-    error: "unauthorized",
-    error_description:
-      "Provide an OAuth 2.1 bearer token or a legacy x-app-id header.",
-  });
-}
-
-// ---------------------------------------------------------------------------
-// POST /mcp
-// ---------------------------------------------------------------------------
-
-app.post("/mcp", async (req: Request, res: Response) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-  if (sessionId && sessions.has(sessionId)) {
-    // Re-evaluate auth on every request to pick up token refreshes
-    const ctx = await extractAuth(req);
-    if (ctx) setAuthContext(sessionId, ctx);
-    const session = sessions.get(sessionId)!;
-    await session.transport.handleRequest(req, res, req.body);
-    return;
-  }
-
-  // New session — resolve auth first; reject before creating server/transport
-  const authCtx = await extractAuth(req);
-  if (!authCtx) {
-    sendUnauthorized(res);
-    return;
-  }
-
-  const { server, cleanup } = createServer();
-
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-    onsessioninitialized: (sid) => {
-      sessions.set(sid, { transport, cleanup });
-      // Bind the resolved auth context to the real session ID
-      setAuthContext(sid, authCtx);
-    },
-    onsessionclosed: async (sid) => {
-      sessions.delete(sid);
-      deleteAppId(sid);
-      await cleanup();
-    },
-  });
-
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-});
-
-// ---------------------------------------------------------------------------
-// GET /mcp
-// ---------------------------------------------------------------------------
-
-app.get("/mcp", async (req: Request, res: Response) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (!sessionId || !sessions.has(sessionId)) {
-    res.status(400).json({ error: "Invalid or missing session ID" });
-    return;
-  }
-  const session = sessions.get(sessionId)!;
-  await session.transport.handleRequest(req, res);
-});
-
-// ---------------------------------------------------------------------------
-// DELETE /mcp
-// ---------------------------------------------------------------------------
-
-app.delete("/mcp", async (req: Request, res: Response) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (!sessionId || !sessions.has(sessionId)) {
-    res.status(400).json({ error: "Invalid or missing session ID" });
-    return;
-  }
-  const session = sessions.get(sessionId)!;
-  await session.transport.handleRequest(req, res);
-});
-
-// ---------------------------------------------------------------------------
-// Health
-// ---------------------------------------------------------------------------
+// Request handling lives in @/http/handlers so it can be tested without binding
+// a port. RFC 9728 protected-resource metadata is part of that module.
+app.get("/.well-known/oauth-protected-resource", handleProtectedResource);
+app.post("/mcp", handlePost);
+app.get("/mcp", handleGet);
+app.delete("/mcp", handleDelete);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
