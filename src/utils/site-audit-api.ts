@@ -83,12 +83,13 @@ async function apiRequest<T>(
     accessToken: string,
     body?: unknown,
     query?: Record<string, unknown>,
+    responseType: "json" | "text" = "json",
 ): Promise<T> {
     const url = `${getSiteAuditBaseUrl()}${path}${toQuery(query)}`;
     const headers: Record<string, string> = {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        Accept: "application/json",
+        Accept: responseType === "text" ? "text/csv, text/plain" : "application/json",
     };
 
     const response = await fetch(url, {
@@ -118,6 +119,8 @@ async function apiRequest<T>(
     if (response.status === 204) return undefined as T;
     const text = await response.text();
     if (!text) return undefined as T;
+    // CSV export is not JSON — parsing it would throw on the first comma.
+    if (responseType === "text") return text as T;
     return JSON.parse(text) as T;
 }
 
@@ -337,3 +340,56 @@ export const deleteSchedule = async (
 /** Org identity and site-audit entitlements for the connected token. */
 export const getConnectionContext = async (accessToken: string): Promise<any> =>
     apiRequest("GET", "/api/v1/site-audit/context", accessToken);
+
+// ---------------------------------------------------------------------------
+// Fix list and destructive actions
+// ---------------------------------------------------------------------------
+
+export interface FixItemInput {
+    field:           string;
+    proposedValue:   string;
+    kind?:           "edit" | "note";
+    originalValue?:  string;
+    recommendation?: string;
+    issueCode?:      string;
+    issueTitle?:     string;
+    severity?:       string;
+    source?:         "manual" | "ai" | "suggested";
+}
+
+export const listFixItems = async (auditId: string, accessToken: string): Promise<any> =>
+    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/fix-items`, accessToken);
+
+/**
+ * Upsert fix items for one page. The gateway rejects a blank or unchanged
+ * proposedValue on an API connection, because upstream treats that as a delete.
+ */
+export const upsertFixItems = async (
+    auditId: string,
+    accessToken: string,
+    pageUrl: string,
+    items: FixItemInput[],
+): Promise<any> =>
+    apiRequest("POST", `/api/v1/site-audit/audits/${auditId}/fix-items`, accessToken, { pageUrl, items });
+
+export const deleteFixItem = async (
+    auditId: string,
+    fixItemId: string,
+    accessToken: string,
+): Promise<void> =>
+    apiRequest("DELETE", `/api/v1/site-audit/audits/${auditId}/fix-items/${fixItemId}`, accessToken);
+
+/** Returns raw CSV text, not JSON. */
+export const exportFixItemsCsv = async (auditId: string, accessToken: string): Promise<string> =>
+    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/fix-items/export.csv`, accessToken, undefined, undefined, "text");
+
+/** Permanently removes an audit and its results. Answers 204. */
+export const deleteAudit = async (auditId: string, accessToken: string): Promise<void> =>
+    apiRequest("DELETE", `/api/v1/site-audit/audits/${auditId}`, accessToken);
+
+/**
+ * Emails the audit report as PDF attachments. The recipient is fixed to the
+ * authenticated account by the gateway — no address is sent from here.
+ */
+export const emailAuditReport = async (auditId: string, accessToken: string): Promise<any> =>
+    apiRequest("POST", `/api/v1/site-audit/audits/${auditId}/email`, accessToken, {});
