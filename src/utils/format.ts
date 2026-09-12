@@ -1221,3 +1221,120 @@ export function formatConnectionContext(ctx: any): FormatResult {
         },
     };
 }
+
+// ---------------------------------------------------------------------------
+// Fix list
+// ---------------------------------------------------------------------------
+
+export function formatFixItems(auditId: string, result: any): FormatResult {
+    const items = result?.fixItems ?? result?.items ?? (Array.isArray(result) ? result : []);
+    if (!items.length) {
+        return {
+            markdown: [
+                `## Fix List`, `Audit \`${auditId}\``, '',
+                `No fix items saved yet. Use **saveFixItems** to record a proposed change for a page.`,
+            ].join('\n'),
+            structured: { auditId, fixItems: [] },
+        };
+    }
+
+    const byPage = new Map<string, any[]>();
+    for (const it of items) {
+        const key = it.pageUrl || '(unknown page)';
+        byPage.set(key, [...(byPage.get(key) ?? []), it]);
+    }
+
+    const sections: string[] = [];
+    for (const [page, pageItems] of byPage) {
+        sections.push('', `### ${page}`);
+        for (const it of pageItems) {
+            const lines = [
+                `- **${it.field}**${it.kind === 'note' ? ' _(note)_' : ''} — ${it.proposedValue ?? ''}`,
+                it.originalValue ? `  - was: ${it.originalValue}` : null,
+                it.issueCode ? `  - issue: \`${it.issueCode}\`` : null,
+                it.id ? `  - id: \`${it.id}\`` : null,
+            ].filter(Boolean) as string[];
+            sections.push(...lines);
+        }
+    }
+
+    return {
+        markdown: [
+            `## Fix List`, `Audit \`${auditId}\``, '',
+            metaLine([`${items.length} items`, `${byPage.size} pages`]),
+            ...sections,
+            '',
+            `${CHECK} **exportFixItemsCsv** returns this as CSV for a developer handoff.`,
+        ].join('\n'),
+        structured: { auditId, fixItems: items },
+    };
+}
+
+export function formatFixItemsSaved(auditId: string, pageUrl: string, count: number, result: any): FormatResult {
+    return {
+        markdown: [
+            `## Fix Items Saved`,
+            `Audit \`${auditId}\``, '',
+            `Saved ${count} item${count === 1 ? '' : 's'} for ${pageUrl}.`,
+        ].join('\n'),
+        structured: { auditId, pageUrl, saved: count, result: result ?? null },
+    };
+}
+
+export function formatFixItemDeleted(auditId: string, fixItemId: string): FormatResult {
+    return {
+        markdown: [
+            `## Fix Item Removed`,
+            `Removed \`${fixItemId}\` from audit \`${auditId}\`.`,
+        ].join('\n'),
+        structured: { auditId, fixItemId, deleted: true },
+    };
+}
+
+export function formatFixItemsCsv(auditId: string, csv: string): FormatResult {
+    const rows = csv ? csv.trim().split('\n').length - 1 : 0;
+    return {
+        markdown: [
+            `## Fix List (CSV)`,
+            `Audit \`${auditId}\``, '',
+            metaLine([`${Math.max(rows, 0)} rows`]),
+            '',
+            '```csv',
+            truncate(csv, CAP_MARKDOWN),
+            '```',
+        ].join('\n'),
+        structured: { auditId, csv },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Destructive / side-effecting actions
+// ---------------------------------------------------------------------------
+
+export function formatAuditDeleted(auditId: string, alreadyGone: boolean): FormatResult {
+    return {
+        markdown: [
+            `## Audit Deleted`,
+            alreadyGone
+                ? `No audit \`${auditId}\` exists — it may already have been deleted.`
+                : `Audit \`${auditId}\` and its results have been permanently removed.`,
+        ].join('\n'),
+        structured: { auditId, deleted: true, alreadyGone },
+    };
+}
+
+export function formatReportEmailed(auditId: string, result: any): FormatResult {
+    const recipient = result?.recipient;
+    return {
+        markdown: [
+            `## Report Emailed`,
+            `Audit \`${auditId}\``, '',
+            recipient
+                ? `Sent to **${recipient}** — the address on the authenticated account.`
+                : `Sent to the address on the authenticated account.`,
+            '',
+            `Reports can only be emailed to the account owner, not to an arbitrary address.`,
+        ].join('\n'),
+        structured: { auditId, recipient: recipient ?? null, filenames: result?.filenames ?? [] },
+    };
+}

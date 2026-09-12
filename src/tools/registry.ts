@@ -22,6 +22,12 @@ import ListWebsitesTool from "@/tools/list-websites";
 import GetMonitoringScheduleTool from "@/tools/get-monitoring-schedule";
 import SetMonitoringScheduleTool from "@/tools/set-monitoring-schedule";
 import GetConnectionContextTool from "@/tools/get-connection-context";
+import ListFixItemsTool from "@/tools/list-fix-items";
+import SaveFixItemsTool from "@/tools/save-fix-items";
+import DeleteFixItemTool from "@/tools/delete-fix-item";
+import ExportFixItemsCsvTool from "@/tools/export-fix-items-csv";
+import DeleteSiteAuditTool from "@/tools/delete-site-audit";
+import EmailSiteAuditReportTool from "@/tools/email-site-audit-report";
 import PreviewPageAuditTool from "@/tools/preview-page-audit";
 import GetLinkPreviewTool from "@/tools/get-link-preview";
 
@@ -68,6 +74,12 @@ const REGISTRY: Record<ToolNames, ToolRegistration> = {
   [ToolNames.GET_MONITORING_SCHEDULE]:  { create: (c) => new GetMonitoringScheduleTool(c.accessToken, c.organizationId) },
   [ToolNames.SET_MONITORING_SCHEDULE]:  { create: (c) => new SetMonitoringScheduleTool(c.accessToken, c.organizationId) },
   [ToolNames.GET_CONNECTION_CONTEXT]:   { create: (c) => new GetConnectionContextTool(c.accessToken) },
+  [ToolNames.LIST_FIX_ITEMS]:           { create: (c) => new ListFixItemsTool(c.accessToken) },
+  [ToolNames.SAVE_FIX_ITEMS]:           { create: (c) => new SaveFixItemsTool(c.accessToken) },
+  [ToolNames.DELETE_FIX_ITEM]:          { create: (c) => new DeleteFixItemTool(c.accessToken) },
+  [ToolNames.EXPORT_FIX_ITEMS_CSV]:     { create: (c) => new ExportFixItemsCsvTool(c.accessToken) },
+  [ToolNames.DELETE_SITE_AUDIT]:        { create: (c) => new DeleteSiteAuditTool(c.accessToken) },
+  [ToolNames.EMAIL_SITE_AUDIT_REPORT]:  { create: (c) => new EmailSiteAuditReportTool(c.accessToken) },
   [ToolNames.PREVIEW_PAGE_AUDIT]:    { create: (c) => new PreviewPageAuditTool(c.accessToken, c.organizationId) },
   [ToolNames.GET_LINK_PREVIEW]:      { create: (c) => new GetLinkPreviewTool(c.accessToken, c.organizationId) },
 };

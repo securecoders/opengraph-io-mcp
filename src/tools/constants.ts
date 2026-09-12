@@ -21,6 +21,12 @@ export enum ToolNames {
     GET_MONITORING_SCHEDULE = "getMonitoringSchedule",
     SET_MONITORING_SCHEDULE = "setMonitoringSchedule",
     GET_CONNECTION_CONTEXT = "getConnectionContext",
+    LIST_FIX_ITEMS = "listFixItems",
+    SAVE_FIX_ITEMS = "saveFixItems",
+    DELETE_FIX_ITEM = "deleteFixItem",
+    EXPORT_FIX_ITEMS_CSV = "exportFixItemsCsv",
+    DELETE_SITE_AUDIT = "deleteSiteAudit",
+    EMAIL_SITE_AUDIT_REPORT = "emailSiteAuditReport",
     PREVIEW_PAGE_AUDIT = "previewPageAudit",
     GET_LINK_PREVIEW = "getLinkPreview",
 }
