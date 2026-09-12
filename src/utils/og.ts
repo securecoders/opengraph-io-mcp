@@ -129,7 +129,6 @@ export interface MarkdownOptions extends CommonOgOptions {
     // Envelope section toggles
     include_markdown?: boolean;
     include_metadata?: boolean;
-    include_ai_safety?: boolean;
     include_chunks?: boolean;
     // Additional render controls
     load_more_item_selector?: string;
@@ -357,12 +356,25 @@ export const getSiteMarkdown = async (
 
     const body = await response.text();
     if (!response.ok) {
-        // ai_sanitize_mode:'block' answers 422 with a JSON error describing why.
-        throw new Error(`Markdown API request failed: ${response.status} ${response.statusText}${body ? ` — ${body}` : ''}`);
+        // A block (422) carries an ai_safety report whose signals include the
+        // literal matched injection text. Echoing the raw body would hand the
+        // model the very strings the block exists to withhold, so only the
+        // message and risk level are surfaced.
+        let detail = body;
+        try {
+            const parsed = JSON.parse(body);
+            const risk = parsed?.ai_safety?.risk_level;
+            detail = [parsed?.error?.message ?? parsed?.message, risk ? `risk: ${risk}` : null]
+                .filter(Boolean).join(' — ') || response.statusText;
+        } catch {
+            detail = body.slice(0, 200);
+        }
+        throw new Error(`Markdown API request failed: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`);
     }
 
     // An og-api deployment that predates the JSON envelope still answers
     // text/markdown. Treat the body as prose rather than throwing on parse.
+    // A deployment predating the JSON envelope still answers text/markdown.
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("json")) {
         return { markdown: body };
@@ -370,6 +382,8 @@ export const getSiteMarkdown = async (
     try {
         return JSON.parse(body) as MarkdownResult;
     } catch {
-        return { markdown: body };
+        // Claimed JSON and wasn't: a truncated or intercepted envelope. Handing
+        // that to the model as prose would disguise a transport failure.
+        throw new Error("Markdown API returned a malformed JSON envelope.");
     }
 };

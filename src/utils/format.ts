@@ -337,7 +337,7 @@ function chunkPreview(chunks: Array<Record<string, any>>): string {
         const score = typeof c.relevance_score === 'number'
             ? ` · relevance ${c.relevance_score.toFixed(2)}` : '';
         return [
-            `### Chunk ${c.position ?? i}${score}`,
+            `### Chunk ${c.index ?? c.position ?? i}${score}`,
             path ? `*${path}*` : null,
             '',
             String(c.text ?? ''),
@@ -363,12 +363,20 @@ export function formatMarkdown(url: string, payload: MarkdownPayload): FormatRes
         debug?.full_render_used ? 'rendered' : null,
     ]);
 
-    // Content was fetched from an arbitrary page, so a detected injection attempt
-    // is the first thing the reader needs — not a footnote.
+    // Content was fetched from an arbitrary page, so anything short of a clean
+    // scan is the first thing the reader needs. `unknown` matters as much as
+    // `high`: og-api fails open when the sanitizer errors, and treating that as
+    // clean is exactly the case it reports `sanitizer_error` to prevent.
     const risk = ai_safety?.risk_level;
-    const safetyNote = (risk === 'medium' || risk === 'high')
-        ? `> ⚠️ **Prompt-injection risk: ${risk}** (score ${ai_safety?.risk_score ?? '?'}).`
-          + (ai_safety?.content_sanitized ? ' Content was sanitized.' : ' Content was NOT modified.')
+    const unsafe = ai_safety && (risk !== 'low' || ai_safety.sanitizer_error || ai_safety.content_sanitized === false);
+    const safetyNote = unsafe
+        ? [
+            `> **WARNING — prompt-injection scan: ${risk ?? 'unknown'}**`
+              + (ai_safety?.risk_score != null ? ` (score ${ai_safety.risk_score})` : '')
+              + (ai_safety?.sanitizer_error ? ' — the scan did not complete' : '')
+              + (ai_safety?.content_sanitized ? '. Content was sanitized.' : '. Content was NOT modified.'),
+            ai_safety?.recommendation ? `> ${ai_safety.recommendation}` : null,
+          ].filter(Boolean).join('\n')
         : null;
 
     const title = metadata?.title ? `**${metadata.title}**` : null;
@@ -1009,7 +1017,7 @@ export function formatAuditChanges(
     if (degraded) {
         // One half of the merged call failed; say so rather than implying the
         // missing section is empty.
-        lines.push(`> ⚠️ ${degraded}`, '');
+        lines.push(`> **Note:** ${degraded}`, '');
     }
 
     if (diff) {
@@ -1212,7 +1220,7 @@ export function formatConnectionContext(ctx: any): FormatResult {
             enabled.length  ? `Available: ${enabled.join(', ')}` : `No site-audit features are enabled on this plan.`,
             disabled.length ? `Not on this plan: ${disabled.join(', ')}` : null,
             '',
-            `This connection is scoped to the organization above. To work with a different one, reconnect and choose it during authorization.`,
+            `Tools on this connection act on the organization above by default. To work on a different one, reconnect and choose it during authorization.`,
         ].filter((l) => l !== null).join('\n'),
         structured: {
             organizationId:   ctx?.organizationId ?? null,
@@ -1293,15 +1301,19 @@ export function formatFixItemDeleted(auditId: string, fixItemId: string): Format
 
 export function formatFixItemsCsv(auditId: string, csv: string): FormatResult {
     const rows = csv ? csv.trim().split('\n').length - 1 : 0;
+    // Fix-item values are user-authored; a backtick run in one would otherwise
+    // close the block and the rest would render as instructions.
+    const longestRun = Math.max(0, ...(csv.match(/`+/g) ?? []).map((r) => r.length));
+    const fence = '`'.repeat(Math.max(3, longestRun + 1)) + 'csv';
     return {
         markdown: [
             `## Fix List (CSV)`,
             `Audit \`${auditId}\``, '',
             metaLine([`${Math.max(rows, 0)} rows`]),
             '',
-            '```csv',
+            fence,
             truncate(csv, CAP_MARKDOWN),
-            '```',
+            fence.replace('csv', ''),
         ].join('\n'),
         structured: { auditId, csv },
     };
@@ -1319,7 +1331,7 @@ export function formatAuditDeleted(auditId: string, alreadyGone: boolean): Forma
                 ? `No audit \`${auditId}\` exists — it may already have been deleted.`
                 : `Audit \`${auditId}\` and its results have been permanently removed.`,
         ].join('\n'),
-        structured: { auditId, deleted: true, alreadyGone },
+        structured: { auditId, deleted: !alreadyGone, alreadyGone },
     };
 }
 
