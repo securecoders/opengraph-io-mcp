@@ -15,25 +15,7 @@ import {
     SubscribeRequestSchema,
     UnsubscribeRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import tools, { ToolNames } from "@/tools";
-import GetOgDataTool from "@/tools/get-og-data";
-import GetOgScrapeDataTool from "@/tools/get-og-scrape-data";
-import GetOgScreenshotTool from "@/tools/get-og-screenshot";
-import GetOgQueryTool from "@/tools/get-og-query";
-import GetOgExtractTool from "@/tools/get-og-extract";
-import GetOgMarkdownTool from "@/tools/get-og-markdown";
-// Image generation tools
-import GenerateImageTool from "@/tools/generate-image";
-import IterateImageTool from "@/tools/iterate-image";
-import InspectImageSessionTool from "@/tools/inspect-image-session";
-import ExportImageAssetTool from "@/tools/export-image-asset";
-// Site Audit tools
-import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
-import StartSiteAuditTool from "@/tools/start-site-audit";
-import GetSiteAuditStatusTool from "@/tools/get-site-audit-status";
-import GetSiteAuditReportTool from "@/tools/get-site-audit-report";
-import PreviewPageAuditTool from "@/tools/preview-page-audit";
-import GetLinkPreviewTool from "@/tools/get-link-preview";
+import { resolveTool, toolDefinitions } from "@/tools/registry";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
 
@@ -62,7 +44,7 @@ enum PromptName {
     RUN_SITE_AUDIT = "run-site-audit",
 }
 
-const SERVER_INSTRUCTIONS = `\
+export const SERVER_INSTRUCTIONS = `\
 OpenGraph.io MCP Server — fetch, analyze, and extract content from any URL on the web.
 
 DATA TOOLS — choose based on your goal:
@@ -954,7 +936,7 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
     });
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        return { tools };
+        return { tools: toolDefinitions };
     });
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -974,112 +956,13 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
         const accessToken    = authCtx?.accessToken ?? "";
         const isLocal = !sessionId;
         
-        let validatedArgs: any;
-
-        switch (name) {
-            case ToolNames.GET_OG_DATA:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_data_tool = new GetOgDataTool(appId);
-                validatedArgs = og_data_tool.inputSchema.parse(args);
-                return og_data_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_SCRAPE_DATA:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_scrape_data_tool = new GetOgScrapeDataTool(appId);
-                validatedArgs = og_scrape_data_tool.inputSchema.parse(args);
-                return og_scrape_data_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_SCREENSHOT:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_screenshot_tool = new GetOgScreenshotTool(appId);
-                validatedArgs = og_screenshot_tool.inputSchema.parse(args);
-                return og_screenshot_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_QUERY:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_query_tool = new GetOgQueryTool(appId);
-                validatedArgs = og_query_tool.inputSchema.parse(args);
-                return og_query_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_EXTRACT:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_extract_tool = new GetOgExtractTool(appId);
-                validatedArgs = og_extract_tool.inputSchema.parse(args);
-                return og_extract_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_MARKDOWN:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_markdown_tool = new GetOgMarkdownTool(appId);
-                validatedArgs = og_markdown_tool.inputSchema.parse(args);
-                return og_markdown_tool.execute(validatedArgs);
-
-            // Image generation tools (use OG_BASE_URL, no appId required in switch)
-            case ToolNames.GENERATE_IMAGE:
-                const generate_image_tool = new GenerateImageTool(appId);
-                validatedArgs = generate_image_tool.inputSchema.parse(args);
-                return generate_image_tool.execute(validatedArgs);
-
-            case ToolNames.ITERATE_IMAGE:
-                const iterate_image_tool = new IterateImageTool(appId);
-                validatedArgs = iterate_image_tool.inputSchema.parse(args);
-                return iterate_image_tool.execute(validatedArgs);
-
-            case ToolNames.INSPECT_IMAGE_SESSION:
-                const inspect_session_tool = new InspectImageSessionTool(appId);
-                validatedArgs = inspect_session_tool.inputSchema.parse(args);
-                return inspect_session_tool.execute(validatedArgs);
-
-            case ToolNames.EXPORT_IMAGE_ASSET:
-                const export_asset_tool = new ExportImageAssetTool(appId, isLocal);
-                validatedArgs = export_asset_tool.inputSchema.parse(args);
-                return export_asset_tool.execute(validatedArgs);
-
-            // Site Audit tools — require OAuth Bearer token + Site Audit plan
-            case ToolNames.DISCOVER_SITE_URLS:
-                const discover_tool = new DiscoverSiteUrlsTool(accessToken, organizationId);
-                validatedArgs = discover_tool.inputSchema.parse(args);
-                return discover_tool.execute(validatedArgs);
-
-            case ToolNames.START_SITE_AUDIT:
-                const start_audit_tool = new StartSiteAuditTool(accessToken, organizationId);
-                validatedArgs = start_audit_tool.inputSchema.parse(args);
-                return start_audit_tool.execute(validatedArgs);
-
-            case ToolNames.GET_SITE_AUDIT_STATUS:
-                const audit_status_tool = new GetSiteAuditStatusTool(accessToken);
-                validatedArgs = audit_status_tool.inputSchema.parse(args);
-                return audit_status_tool.execute(validatedArgs);
-
-            case ToolNames.GET_SITE_AUDIT_REPORT:
-                const audit_report_tool = new GetSiteAuditReportTool(accessToken);
-                validatedArgs = audit_report_tool.inputSchema.parse(args);
-                return audit_report_tool.execute(validatedArgs);
-
-            case ToolNames.PREVIEW_PAGE_AUDIT:
-                const preview_audit_tool = new PreviewPageAuditTool(accessToken, organizationId);
-                validatedArgs = preview_audit_tool.inputSchema.parse(args);
-                return preview_audit_tool.execute(validatedArgs);
-
-            case ToolNames.GET_LINK_PREVIEW:
-                const link_preview_tool = new GetLinkPreviewTool(accessToken, organizationId);
-                validatedArgs = link_preview_tool.inputSchema.parse(args);
-                return link_preview_tool.execute(validatedArgs);
-
-            default:
-                throw new Error(`Unknown tool: ${name}`);
-        }
+        const tool = resolveTool(name, {
+            appId: appId ?? "",
+            organizationId,
+            accessToken,
+            isLocal,
+        });
+        return tool.execute(tool.inputSchema.parse(args));
     });
 
     server.setRequestHandler(CompleteRequestSchema, async (request) => {
