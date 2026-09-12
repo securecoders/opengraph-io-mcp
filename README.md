@@ -256,7 +256,7 @@ Recurring audits, trend tracking, and change reporting. OAuth required; `setMoni
 | **Get Site Audit Changes** | What changed since the previous run — new, fixed, and regressed issues, pages added or removed, and the score delta — plus prioritized issue groups. A *regressed* issue is one previously verified as fixed that has come back; this is tracked across runs by durable issue identity, not by diffing two lists. |
 | **Get Monitoring Schedule** | A website's recurring-audit settings: frequency, anchored day and time, paused state, next run. |
 | **Set Monitoring Schedule** | Enable, change, or remove recurring audits. **Commits ongoing page-quota spend** and can trigger alert email. `enabled: false` deletes the configuration — use `paused: true` to keep it. Alert recipients are dashboard-only. |
-| **Get Connection Context** | Which organization this connection acts for, and which Site Audit features its plan allows. A connection is bound to one organization, chosen during authorization. |
+| **Get Connection Context** | Which organization this connection acts for, and which Site Audit features its plan allows. The organization is chosen during authorization and is what every tool defaults to. |
 
 ### Fix List Tools
 
