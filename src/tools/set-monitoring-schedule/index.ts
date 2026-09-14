@@ -25,7 +25,9 @@ class SetMonitoringScheduleTool extends BaseTool {
         "Set `enabled: false` to stop monitoring. That DELETES the schedule configuration — " +
         "frequency, timing and options are not retained, and re-enabling means setting them again. " +
         "To pause temporarily and keep the configuration, use `paused: true` instead.\n\n" +
-        "Alert recipients cannot be set here; they are managed in the dashboard. Requires the " +
+        "Settings you do not pass are carried over from the stored schedule, so you can change one " +
+        "field without re-sending the rest. Alert recipients cannot be set here; they are managed " +
+        "in the dashboard. Requires the " +
         "Site Audit scheduling entitlement — the call fails with a plan message without it.";
 
     annotations = {
@@ -49,8 +51,8 @@ class SetMonitoringScheduleTool extends BaseTool {
         dayOfWeek: z.number().int().min(0).max(6).optional().describe(
             "Day for a weekly schedule — 0 is Sunday.",
         ),
-        dayOfMonth: z.number().int().min(1).max(31).optional().describe(
-            "Day for a monthly schedule.",
+        dayOfMonth: z.number().int().min(1).max(28).optional().describe(
+            "Day for a monthly schedule (1–28, so the day exists in every month).",
         ),
         runHour: z.number().int().min(0).max(23).optional().describe(
             "Hour of day to run (0–23). Anchoring needs runHour and timezone together.",

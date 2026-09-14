@@ -327,8 +327,8 @@ export const putSchedule = async (
     schedule: Record<string, unknown>,
 ): Promise<any> =>
     apiRequest("PUT", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, {
-        organizationId,
         ...schedule,
+        organizationId,
     });
 
 /** Remove a schedule entirely. Answers 204. */

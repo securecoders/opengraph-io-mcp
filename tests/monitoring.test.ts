@@ -122,6 +122,23 @@ describe("setMonitoringSchedule", () => {
     expect(res.structuredContent.schedule).toBeNull();
   });
 
+  it("reports a saved schedule as disabled while it is still paused", async () => {
+    // Saving a paused schedule does not start it — structured.enabled is what a
+    // client reads, so it must not claim monitoring is on.
+    stubFetch({ "/schedule": { body: { schedule: { frequency: "WEEKLY", pausedAt: "2026-09-01T00:00:00Z" } } } });
+    const tool = new SetMonitoringScheduleTool("tok", "org-1");
+    const res: any = await tool.execute(tool.inputSchema.parse({ websiteId: "w1", frequency: "WEEKLY" }));
+
+    expect(res.structuredContent.enabled).toBe(false);
+    expect(res.content.map((c: any) => c.text).join("\n")).toMatch(/still \*\*paused\*\*/);
+  });
+
+  it("rejects a monthly day that does not exist in every month", () => {
+    const tool = new SetMonitoringScheduleTool("tok", "org-1");
+    expect(() => tool.inputSchema.parse({ websiteId: "w1", frequency: "MONTHLY", dayOfMonth: 31 })).toThrow();
+    expect(() => tool.inputSchema.parse({ websiteId: "w1", frequency: "MONTHLY", dayOfMonth: 28 })).not.toThrow();
+  });
+
   it("refuses to both delete and configure in one call", async () => {
     // enabled:false deletes; any other field would be silently dropped — and
     // `paused` in particular means the caller wanted the config kept.

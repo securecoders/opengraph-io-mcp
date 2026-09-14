@@ -1187,9 +1187,12 @@ export function formatScheduleSaved(websiteId: string, result: any): FormatResul
             '',
             ...scheduleSummary(sch),
             '',
-            `${CHECK} Each run consumes page quota. Alert recipients are managed in the dashboard.`,
-        ].join('\n'),
-        structured: { websiteId, schedule: sch, enabled: true },
+            sch && sch.pausedAt
+                ? `This schedule is still **paused** — pass paused: false to resume it.`
+                : `${CHECK} Each run consumes page quota. Alert recipients are managed in the dashboard.`,
+        ].filter(Boolean).join('\n'),
+        // Derived, not assumed: saving a schedule that is paused does not start it.
+        structured: { websiteId, schedule: sch, enabled: !!sch && !sch.pausedAt },
     };
 }
 
@@ -1278,14 +1281,19 @@ export function formatFixItems(auditId: string, result: any): FormatResult {
     };
 }
 
-export function formatFixItemsSaved(auditId: string, pageUrl: string, count: number, result: any): FormatResult {
+export function formatFixItemsSaved(
+    auditId: string, pageUrl: string, count: number, result: any, skipped = 0,
+): FormatResult {
     return {
         markdown: [
             `## Fix Items Saved`,
             `Audit \`${auditId}\``, '',
             `Saved ${count} item${count === 1 ? '' : 's'} for ${pageUrl}.`,
-        ].join('\n'),
-        structured: { auditId, pageUrl, saved: count, result: result ?? null },
+            skipped > 0
+                ? `${skipped} item${skipped === 1 ? ' was' : 's were'} skipped — the field is not one this audit can edit.`
+                : null,
+        ].filter(Boolean).join('\n'),
+        structured: { auditId, pageUrl, saved: count, skipped, result: result ?? null },
     };
 }
 
