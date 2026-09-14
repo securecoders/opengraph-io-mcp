@@ -198,7 +198,3 @@ export async function handleDelete(req: Request, res: Response): Promise<void> {
   await session.transport.handleRequest(req, res);
 }
 
-// ---------------------------------------------------------------------------
-// Health
-// ---------------------------------------------------------------------------
-

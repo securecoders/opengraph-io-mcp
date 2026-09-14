@@ -374,7 +374,6 @@ export const getSiteMarkdown = async (
 
     // An og-api deployment that predates the JSON envelope still answers
     // text/markdown. Treat the body as prose rather than throwing on parse.
-    // A deployment predating the JSON envelope still answers text/markdown.
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("json")) {
         return { markdown: body };
