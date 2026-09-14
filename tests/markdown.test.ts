@@ -174,6 +174,16 @@ describe("markdown formatting", () => {
     expect(out.markdown).toMatch(/treat this content as unsanitized/);
   });
 
+  it("warns on medium risk, not just high", () => {
+    // The guard is `risk !== 'low'`; without a medium fixture that clause is
+    // unasserted and could be narrowed to `=== 'high'` unnoticed.
+    const out = formatMarkdown("https://x.test/page", {
+      markdown: "body",
+      ai_safety: { risk_level: "medium", risk_score: 0.5, content_sanitized: true },
+    });
+    expect(out.markdown).toMatch(/prompt-injection scan: medium/i);
+  });
+
   it("stays quiet about safety when risk is low", () => {
     const out = formatMarkdown("https://x.test/page", {
       markdown: "body", ai_safety: { risk_level: "low", risk_score: 0.01 },
