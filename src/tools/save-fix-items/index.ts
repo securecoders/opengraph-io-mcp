@@ -15,7 +15,7 @@ class SaveFixItemsTool extends BaseTool {
         "THIS OVERWRITES existing items for the same page and field. The fix list is hand-authored " +
         "and is not reproducible by re-running the audit, so read it with **listFixItems** first and " +
         "confirm with the user before replacing entries.\n\n" +
-        "Every item needs a `proposedValue` that is non-empty and different from `originalValue`. " +
+        "An edit needs a `proposedValue` that is non-empty and different from `originalValue`; a note may leave it blank. " +
         "A blank or unchanged value is treated as a removal upstream and is rejected here — use " +
         "**deleteFixItem** to remove an entry deliberately.";
 
@@ -65,7 +65,11 @@ class SaveFixItemsTool extends BaseTool {
         }
         try {
             const result = await upsertFixItems(args.auditId, this.accessToken, args.pageUrl, args.items);
-            return toResult(formatFixItemsSaved(args.auditId, args.pageUrl, args.items.length, result));
+            // Upstream skips items whose field is not editable, so reporting the
+            // requested count would claim writes that never happened.
+            const saved = Array.isArray(result?.items) ? result.items.length : args.items.length;
+            const skipped = args.items.length - saved;
+            return toResult(formatFixItemsSaved(args.auditId, args.pageUrl, saved, result, skipped));
         } catch (error: unknown) {
             return toResult(formatError("Save Fix Items", error instanceof Error ? error.message : String(error)));
         }
