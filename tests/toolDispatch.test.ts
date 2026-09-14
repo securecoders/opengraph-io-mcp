@@ -114,6 +114,23 @@ describe("credential guard by tool family", () => {
   });
 });
 
+describe("tools that take no arguments", () => {
+  it("runs when the client omits `arguments` entirely", async () => {
+    // `arguments` is optional in the protocol, and z.object({}).parse(undefined)
+    // throws — so the one zero-argument tool broke for any conforming client.
+    const { client, cleanup } = await connect(SID);
+    setAuthContext(SID, { appId: "", accessToken: "" });
+    try {
+      const res: any = await client.callTool({ name: ToolNames.GET_CONNECTION_CONTEXT });
+      // Unauthenticated here, so it reports that — the point is it did not throw
+      // a schema error before reaching execute().
+      expect(JSON.stringify(res)).toMatch(/reconnect/i);
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+});
+
 describe("unknown tools", () => {
   it("rejects a name that is not registered", async () => {
     const out = await callFor("notATool", {}, SID);

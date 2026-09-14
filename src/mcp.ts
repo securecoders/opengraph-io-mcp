@@ -1002,7 +1002,9 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
             accessToken,
             isLocal,
         });
-        return tool.execute(tool.inputSchema.parse(args));
+        // `arguments` is optional in the protocol, so a no-arg tool is called
+        // without it — parsing undefined against z.object({}) throws.
+        return tool.execute(tool.inputSchema.parse(args ?? {}));
     });
 
     server.setRequestHandler(CompleteRequestSchema, async (request) => {
