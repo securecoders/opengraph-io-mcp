@@ -13,6 +13,8 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 export interface OAuthClaims {
+  /** Token subject (sub) — the user the session belongs to */
+  subject:        string;
   /** ApiKey.key — used for standard API billing (og_app_id) */
   appId:          string;
   /** Organization UUID — used for marketing-tool billing (og_org_id) */
@@ -81,10 +83,14 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
     ...(issuer ? { issuer } : {}),
   });
 
+  const subject        = typeof payload.sub       === 'string' ? payload.sub       : '';
   const appId          = typeof payload.og_app_id === 'string' ? payload.og_app_id : '';
   const organizationId = typeof payload.og_org_id === 'string' ? payload.og_org_id : '';
   const scope          = typeof payload.scope     === 'string' ? payload.scope     : 'mcp';
 
+  if (!subject) {
+    throw new Error('Access token missing sub claim');
+  }
   if (!appId) {
     throw new Error('Access token missing og_app_id claim');
   }
@@ -92,5 +98,5 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
     throw new Error('Access token missing og_org_id claim');
   }
 
-  return { appId, organizationId, scope };
+  return { subject, appId, organizationId, scope };
 }

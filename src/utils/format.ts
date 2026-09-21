@@ -316,41 +316,97 @@ export function formatExtract(url: string, payload: ExtractPayload): FormatResul
 // ---------------------------------------------------------------------------
 
 export interface MarkdownPayload {
-    markdown:      string;
+    markdown?:  string;
+    metadata?:  Record<string, any>;
+    usage?:     Record<string, any>;
+    chunks?:    Array<Record<string, any>>;
+    headings?:  Array<Record<string, any>>;
+    links?:     Array<Record<string, any>>;
+    images?:    Array<Record<string, any>>;
+    ai_safety?: Record<string, any> | null;
+    debug?:     Record<string, any>;
+    request_id?: string;
     onlyMainContent?: boolean;
-    requestInfo?:  any;
+}
+
+/** Chunk list preview — shown instead of prose when ranking was requested. */
+function chunkPreview(chunks: Array<Record<string, any>>): string {
+    return chunks.map((c, i) => {
+        const path  = Array.isArray(c.heading_path) && c.heading_path.length
+            ? c.heading_path.join(' › ') : null;
+        const score = typeof c.relevance_score === 'number'
+            ? ` · relevance ${c.relevance_score.toFixed(2)}` : '';
+        return [
+            `### Chunk ${c.index ?? c.position ?? i}${score}`,
+            path ? `*${path}*` : null,
+            '',
+            String(c.text ?? ''),
+        ].filter(Boolean).join('\n');
+    }).join('\n\n');
 }
 
 export function formatMarkdown(url: string, payload: MarkdownPayload): FormatResult {
-    const { markdown: content, onlyMainContent, requestInfo } = payload;
-    const domain   = domainFromUrl(url);
-    const isCached = requestInfo?.is_cache;
+    const { markdown: content, metadata, usage, chunks, headings, links, images,
+            ai_safety, debug, request_id, onlyMainContent } = payload;
+    const domain = domainFromUrl(url);
+
+    const chars  = usage?.output_character_count ?? usage?.character_count ?? content?.length ?? 0;
+    const tokens = usage?.output_estimated_token_count ?? usage?.estimated_token_count;
 
     const meta = metaLine([
-        `${content.length.toLocaleString()} chars`,
+        `${Number(chars).toLocaleString()} chars`,
+        tokens ? `~${Number(tokens).toLocaleString()} tokens` : null,
         onlyMainContent !== false ? 'main content' : 'full page',
-        isCached !== undefined ? freshnessLabel(isCached) : null,
+        usage?.truncated ? `truncated (${usage.truncation_reason ?? 'limit'})` : null,
+        chunks?.length ? `${chunks.length} chunks` : null,
+        debug?.proxy_used ? `via ${debug.proxy_used}` : null,
+        debug?.full_render_used ? 'rendered' : null,
     ]);
 
-    // The markdown response from og-api IS the content — pass it through with
-    // a branded header block, then truncate if needed.
+    // Content was fetched from an arbitrary page, so anything short of a clean
+    // scan is the first thing the reader needs. `unknown` matters as much as
+    // `high`: og-api fails open when the sanitizer errors, and treating that as
+    // clean is exactly the case it reports `sanitizer_error` to prevent.
+    const risk = ai_safety?.risk_level;
+    const unsafe = ai_safety && (risk !== 'low' || ai_safety.sanitizer_error || ai_safety.content_sanitized === false);
+    const safetyNote = unsafe
+        ? [
+            `> **WARNING — prompt-injection scan: ${risk ?? 'unknown'}**`
+              + (ai_safety?.risk_score != null ? ` (score ${ai_safety.risk_score})` : '')
+              + (ai_safety?.sanitizer_error ? ' — the scan did not complete' : '')
+              + (ai_safety?.content_sanitized ? '. Content was sanitized.' : '. Content was NOT modified.'),
+            ai_safety?.recommendation ? `> ${ai_safety.recommendation}` : null,
+          ].filter(Boolean).join('\n')
+        : null;
+
+    const title = metadata?.title ? `**${metadata.title}**` : null;
+    const body  = chunks?.length ? chunkPreview(chunks) : (content ?? '_No Markdown content returned._');
+
     const markdown = truncate(
         [
             `## Markdown`,
             `**${domain}**`,
+            title,
             '',
             meta,
+            safetyNote,
             '',
             '---',
             '',
-            content,
-        ].join('\n'),
+            body,
+        ].filter((l) => l !== null).join('\n'),
         CAP_MARKDOWN,
     );
 
     return {
         markdown,
-        structured: { url, markdown: content, length: content.length, onlyMainContent, requestInfo },
+        structured: {
+            url,
+            markdown: content ?? '',
+            length: Number(chars) || 0,
+            onlyMainContent,
+            metadata, usage, chunks, headings, links, images, ai_safety, debug, request_id,
+        },
     };
 }
 
@@ -862,5 +918,443 @@ export function formatError(toolTitle: string, reason: string): FormatResult {
         markdown,
         structured: { error: reason },
         isError:    true,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Audit history
+// ---------------------------------------------------------------------------
+
+function shortDate(iso?: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);
+}
+
+export function formatAuditList(
+    result: { audits: AuditSummary[]; total?: number; limit?: number; offset?: number },
+    filters: Record<string, unknown> = {},
+): FormatResult {
+    const audits = result.audits || [];
+    const applied = Object.entries(filters)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('/') : v}`);
+
+    if (audits.length === 0) {
+        return {
+            markdown: [
+                `## Site Audit History`,
+                '',
+                applied.length
+                    ? `No audits matched — ${applied.join(', ')}.`
+                    : `No audits yet for this organization.`,
+            ].join('\n'),
+            structured: { audits: [], total: result.total ?? 0 },
+        };
+    }
+
+    const rows = audits.map((a) => [
+        `\`${a.id}\``,
+        a.domain,
+        AUDIT_STATUS_LABEL[a.status] || a.status,
+        a.score != null ? String(a.score) : '—',
+        a.totalIssues != null ? String(a.totalIssues) : '—',
+        shortDate(a.completedAt || a.createdAt),
+    ].join(' | '));
+
+    const shown = result.offset != null && result.total != null
+        ? `${result.offset + 1}–${result.offset + audits.length} of ${result.total}`
+        : `${audits.length}`;
+
+    return {
+        markdown: [
+            `## Site Audit History`,
+            '',
+            metaLine([`${shown} audits`, ...applied]),
+            '',
+            `Audit ID | Domain | Status | Score | Issues | Date`,
+            `--- | --- | --- | --- | --- | ---`,
+            ...rows,
+            '',
+            `${CHECK} Pass an Audit ID to **getSiteAuditReport** for full results, or **getSiteAuditChanges** to see what moved since the previous run.`,
+        ].join('\n'),
+        structured: {
+            audits,
+            total:  result.total ?? audits.length,
+            limit:  result.limit,
+            offset: result.offset,
+        },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Change report + prioritization
+// ---------------------------------------------------------------------------
+
+const PRIORITY_LABEL: Record<string, string> = {
+    fix_first:      'Fix first',
+    fix_as_pattern: 'Fix as a pattern',
+    review_next:    'Review next',
+    low_priority:   'Low priority',
+};
+
+function issueLine(i: Record<string, any>): string {
+    const page = i.pageKey || i.pageUrl || '';
+    const sev  = i.severity ? `**${i.severity}**` : '';
+    const code = i.issueCode || i.checkKey || 'issue';
+    const pattern = i.patternCount > 1 ? ` _(on ${i.patternCount} pages)_` : '';
+    return `- ${sev} \`${code}\`${page ? ` — ${page}` : ''}${pattern}`;
+}
+
+export function formatAuditChanges(
+    auditId: string,
+    diff: any,
+    priorities: any,
+    degraded?: string,
+): FormatResult {
+    const lines: string[] = [`## What Changed`, `Audit \`${auditId}\``, ''];
+
+    if (degraded) {
+        // One half of the merged call failed; say so rather than implying the
+        // missing section is empty.
+        lines.push(`> **Note:** ${degraded}`, '');
+    }
+
+    if (diff) {
+        const delta = typeof diff.scoreDelta === 'number'
+            ? (diff.scoreDelta > 0 ? `+${diff.scoreDelta}` : String(diff.scoreDelta))
+            : null;
+        lines.push(metaLine([
+            delta ? `score ${delta}` : null,
+            `${diff.new?.length ?? 0} new`,
+            `${diff.regressed?.length ?? 0} regressed`,
+            `${diff.fixed?.length ?? 0} fixed`,
+            diff.baselineAuditId ? `vs \`${diff.baselineAuditId}\`` : 'no baseline',
+        ].filter(Boolean) as string[]), '');
+
+        if (diff.regressed?.length) {
+            lines.push(`### Regressed`, ...diff.regressed.slice(0, 15).map(issueLine), '');
+        }
+        if (diff.new?.length) {
+            lines.push(`### New`, ...diff.new.slice(0, 15).map(issueLine), '');
+        }
+        if (diff.pagesAdded?.length || diff.pagesRemoved?.length) {
+            lines.push(metaLine([
+                diff.pagesAdded?.length ? `${diff.pagesAdded.length} pages added` : null,
+                diff.pagesRemoved?.length ? `${diff.pagesRemoved.length} pages removed` : null,
+            ].filter(Boolean) as string[]), '');
+        }
+    }
+
+    if (priorities?.groups) {
+        lines.push(`### Priorities`);
+        for (const key of ['fix_first', 'fix_as_pattern', 'review_next', 'low_priority']) {
+            const group = priorities.groups[key] || [];
+            if (!group.length) continue;
+            lines.push('', `**${PRIORITY_LABEL[key]}** (${group.length})`, ...group.slice(0, 10).map(issueLine));
+        }
+    }
+
+    return {
+        markdown: lines.join('\n'),
+        structured: { auditId, diff: diff ?? null, priorities: priorities ?? null, degraded: degraded ?? null },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Website health + monitoring
+// ---------------------------------------------------------------------------
+
+const WEBSITE_STATUS_LABEL: Record<string, string> = {
+    HEALTHY:             'Healthy',
+    NEEDS_ATTENTION:     'Needs attention',
+    CRITICAL_REGRESSIONS:'Critical regressions',
+    AUDIT_RUNNING:       'Audit running',
+    MONITORING_PAUSED:   'Monitoring paused',
+};
+
+function trendArrow(current?: number | null, previous?: number | null): string {
+    if (current == null || previous == null) return '';
+    const delta = current - previous;
+    if (delta === 0) return ' (no change)';
+    return delta > 0 ? ` (+${delta})` : ` (${delta})`;
+}
+
+export function formatWebsiteList(result: any, filters: Record<string, unknown> = {}): FormatResult {
+    const websites = result?.websites ?? result?.items ?? [];
+    const applied = Object.entries(filters)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${k}: ${v}`);
+
+    if (!websites.length) {
+        return {
+            markdown: [
+                `## Monitored Websites`, '',
+                applied.length
+                    ? `No websites matched — ${applied.join(', ')}.`
+                    : `No websites yet. Run **startSiteAudit** on a domain and it will appear here.`,
+            ].join('\n'),
+            structured: { websites: [], total: result?.total ?? 0 },
+        };
+    }
+
+    const rows = websites.map((w: any) => [
+        `\`${w.id}\``,
+        w.displayDomain || w.canonicalDomain || '—',
+        WEBSITE_STATUS_LABEL[w.status] || w.status || '—',
+        w.currentScore != null ? `${w.currentScore}${trendArrow(w.currentScore, w.previousScore)}` : '—',
+        w.criticalIssueCount ?? '—',
+        w.regressionCount ?? '—',
+        w.nextScheduledAt ? shortDate(w.nextScheduledAt) : 'not monitored',
+    ].join(' | '));
+
+    return {
+        markdown: [
+            `## Monitored Websites`, '',
+            metaLine([`${websites.length} websites`, ...applied]),
+            '',
+            `Website ID | Domain | Status | Score | Critical | Regressed | Next run`,
+            `--- | --- | --- | --- | --- | --- | ---`,
+            ...rows,
+            '',
+            `${CHECK} Pass a Website ID to **getMonitoringSchedule**, or to **listSiteAudits** as \`websiteId\` for that site's history.`,
+        ].join('\n'),
+        structured: { websites, total: result?.total ?? websites.length },
+    };
+}
+
+export function formatWebsiteDetail(result: any): FormatResult {
+    const w = result?.website ?? result;
+    const lines = [
+        `## ${w.displayDomain || w.canonicalDomain || 'Website'}`,
+        `\`${w.id}\``,
+        '',
+        metaLine([
+            WEBSITE_STATUS_LABEL[w.status] || w.status,
+            w.currentScore != null ? `score ${w.currentScore}${trendArrow(w.currentScore, w.previousScore)}` : null,
+            w.knownPageCount != null ? `${w.knownPageCount} known pages` : null,
+        ].filter(Boolean) as string[]),
+        '',
+        `Critical issues: ${w.criticalIssueCount ?? '—'} · Regressed: ${w.regressionCount ?? '—'} · Recently fixed: ${w.recentlyFixedCount ?? '—'}`,
+        '',
+        w.lastAuditAt ? `Last audit: ${shortDate(w.lastAuditAt)}` : 'No audits yet.',
+        w.nextScheduledAt ? `Next scheduled: ${shortDate(w.nextScheduledAt)}` : 'Not monitored — use **setMonitoringSchedule** to start.',
+    ];
+    return { markdown: lines.join('\n'), structured: { website: w } };
+}
+
+function scheduleSummary(sch: any): string[] {
+    if (!sch) return ['Not monitored.'];
+    const when = sch.frequency === 'MONTHLY'
+        ? `monthly${sch.dayOfMonth != null ? ` on day ${sch.dayOfMonth}` : ''}`
+        : `weekly${sch.dayOfWeek != null ? ` on day ${sch.dayOfWeek} (0=Sun)` : ''}`;
+    const time = sch.runHour != null
+        ? ` at ${String(sch.runHour).padStart(2, '0')}:${String(sch.runMinute ?? 0).padStart(2, '0')}${sch.timezone ? ` ${sch.timezone}` : ''}`
+        : '';
+    return [
+        `Runs **${when}${time}**.`,
+        sch.pausedAt ? `**Paused** since ${shortDate(sch.pausedAt)}.` : null,
+        sch.nextRunAt ? `Next run: ${shortDate(sch.nextRunAt)}.` : null,
+        metaLine([
+            sch.includeNewPages ? 'includes new pages' : 'fixed page set',
+            sch.autoAdvanceBaseline ? 'baseline auto-advances' : 'baseline pinned',
+            sch.pageScopeMode ? `scope ${sch.pageScopeMode}` : null,
+            sch.notificationMode ? `alerts ${sch.notificationMode}` : null,
+        ].filter(Boolean) as string[]),
+    ].filter(Boolean) as string[];
+}
+
+export function formatSchedule(websiteId: string, result: any): FormatResult {
+    const sch = result?.schedule ?? result ?? null;
+    const active = sch && Object.keys(sch).length > 0;
+    return {
+        markdown: [
+            `## Monitoring Schedule`,
+            `Website \`${websiteId}\``,
+            '',
+            ...(active ? scheduleSummary(sch) : ['Not monitored. Use **setMonitoringSchedule** to start recurring audits.']),
+        ].join('\n'),
+        structured: { websiteId, schedule: active ? sch : null },
+    };
+}
+
+export function formatScheduleSaved(websiteId: string, result: any): FormatResult {
+    const sch = result?.schedule ?? result ?? null;
+    return {
+        markdown: [
+            `## Monitoring Updated`,
+            `Website \`${websiteId}\``,
+            '',
+            ...scheduleSummary(sch),
+            '',
+            sch && sch.pausedAt
+                ? `This schedule is still **paused** — pass paused: false to resume it.`
+                : `${CHECK} Each run consumes page quota. Alert recipients are managed in the dashboard.`,
+        ].filter(Boolean).join('\n'),
+        // Derived, not assumed: saving a schedule that is paused does not start it.
+        structured: { websiteId, schedule: sch, enabled: !!sch && !sch.pausedAt },
+    };
+}
+
+export function formatScheduleRemoved(websiteId: string): FormatResult {
+    return {
+        markdown: [
+            `## Monitoring Disabled`,
+            `Website \`${websiteId}\``,
+            '',
+            `Recurring audits are off and the schedule configuration has been removed.`,
+            `Re-enabling means setting frequency and timing again.`,
+        ].join('\n'),
+        structured: { websiteId, schedule: null, enabled: false },
+    };
+}
+
+export function formatConnectionContext(ctx: any): FormatResult {
+    const ent = ctx?.entitlements ?? {};
+    const enabled  = Object.entries(ent).filter(([, v]) => v).map(([k]) => k);
+    const disabled = Object.entries(ent).filter(([, v]) => !v).map(([k]) => k);
+    return {
+        markdown: [
+            `## Connection`,
+            '',
+            `Organization: **${ctx?.organizationName || ctx?.organizationId || 'unknown'}**`,
+            `\`${ctx?.organizationId ?? ''}\``,
+            '',
+            enabled.length  ? `Available: ${enabled.join(', ')}` : `No site-audit features are enabled on this plan.`,
+            disabled.length ? `Not on this plan: ${disabled.join(', ')}` : null,
+            '',
+            `Tools on this connection act on the organization above by default. To work on a different one, reconnect and choose it during authorization.`,
+        ].filter((l) => l !== null).join('\n'),
+        structured: {
+            organizationId:   ctx?.organizationId ?? null,
+            organizationName: ctx?.organizationName ?? null,
+            entitlements:     ent,
+        },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Fix list
+// ---------------------------------------------------------------------------
+
+export function formatFixItems(auditId: string, result: any): FormatResult {
+    const items = result?.fixItems ?? result?.items ?? (Array.isArray(result) ? result : []);
+    if (!items.length) {
+        return {
+            markdown: [
+                `## Fix List`, `Audit \`${auditId}\``, '',
+                `No fix items saved yet. Use **saveFixItems** to record a proposed change for a page.`,
+            ].join('\n'),
+            structured: { auditId, fixItems: [] },
+        };
+    }
+
+    const byPage = new Map<string, any[]>();
+    for (const it of items) {
+        const key = it.pageUrl || '(unknown page)';
+        byPage.set(key, [...(byPage.get(key) ?? []), it]);
+    }
+
+    const sections: string[] = [];
+    for (const [page, pageItems] of byPage) {
+        sections.push('', `### ${page}`);
+        for (const it of pageItems) {
+            const lines = [
+                `- **${it.field}**${it.kind === 'note' ? ' _(note)_' : ''} — ${it.proposedValue ?? ''}`,
+                it.originalValue ? `  - was: ${it.originalValue}` : null,
+                it.issueCode ? `  - issue: \`${it.issueCode}\`` : null,
+                it.id ? `  - id: \`${it.id}\`` : null,
+            ].filter(Boolean) as string[];
+            sections.push(...lines);
+        }
+    }
+
+    return {
+        markdown: [
+            `## Fix List`, `Audit \`${auditId}\``, '',
+            metaLine([`${items.length} items`, `${byPage.size} pages`]),
+            ...sections,
+            '',
+            `${CHECK} **exportFixItemsCsv** returns this as CSV for a developer handoff.`,
+        ].join('\n'),
+        structured: { auditId, fixItems: items },
+    };
+}
+
+export function formatFixItemsSaved(
+    auditId: string, pageUrl: string, count: number, result: any, skipped = 0,
+): FormatResult {
+    return {
+        markdown: [
+            `## Fix Items Saved`,
+            `Audit \`${auditId}\``, '',
+            `Saved ${count} item${count === 1 ? '' : 's'} for ${pageUrl}.`,
+            skipped > 0
+                ? `${skipped} item${skipped === 1 ? ' was' : 's were'} skipped — the field is not one this audit can edit.`
+                : null,
+        ].filter(Boolean).join('\n'),
+        structured: { auditId, pageUrl, saved: count, skipped, result: result ?? null },
+    };
+}
+
+export function formatFixItemDeleted(auditId: string, fixItemId: string): FormatResult {
+    return {
+        markdown: [
+            `## Fix Item Removed`,
+            `Removed \`${fixItemId}\` from audit \`${auditId}\`.`,
+        ].join('\n'),
+        structured: { auditId, fixItemId, deleted: true },
+    };
+}
+
+export function formatFixItemsCsv(auditId: string, csv: string): FormatResult {
+    const rows = csv ? csv.trim().split('\n').length - 1 : 0;
+    // Fix-item values are user-authored; a backtick run in one would otherwise
+    // close the block and the rest would render as instructions.
+    const longestRun = Math.max(0, ...(csv.match(/`+/g) ?? []).map((r) => r.length));
+    const fence = '`'.repeat(Math.max(3, longestRun + 1)) + 'csv';
+    return {
+        markdown: [
+            `## Fix List (CSV)`,
+            `Audit \`${auditId}\``, '',
+            metaLine([`${Math.max(rows, 0)} rows`]),
+            '',
+            fence,
+            truncate(csv, CAP_MARKDOWN),
+            fence.replace('csv', ''),
+        ].join('\n'),
+        structured: { auditId, csv },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Destructive / side-effecting actions
+// ---------------------------------------------------------------------------
+
+export function formatAuditDeleted(auditId: string, alreadyGone: boolean): FormatResult {
+    return {
+        markdown: [
+            `## Audit Deleted`,
+            alreadyGone
+                ? `No audit \`${auditId}\` exists — it may already have been deleted.`
+                : `Audit \`${auditId}\` and its results have been permanently removed.`,
+        ].join('\n'),
+        structured: { auditId, deleted: !alreadyGone, alreadyGone },
+    };
+}
+
+export function formatReportEmailed(auditId: string, result: any): FormatResult {
+    const recipient = result?.recipient;
+    return {
+        markdown: [
+            `## Report Emailed`,
+            `Audit \`${auditId}\``, '',
+            recipient
+                ? `Sent to **${recipient}** — the address on the authenticated account.`
+                : `Sent to the address on the authenticated account.`,
+            '',
+            `Reports can only be emailed to the account owner, not to an arbitrary address.`,
+        ].join('\n'),
+        structured: { auditId, recipient: recipient ?? null, filenames: result?.filenames ?? [] },
     };
 }

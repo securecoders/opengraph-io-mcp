@@ -10,6 +10,8 @@
  */
 
 export interface AuthContext {
+  /** Token subject (sub) for OAuth sessions; absent on the x-app-id path */
+  subject?: string;
   /** ApiKey.key — forwarded to OpenGraph API as app_id for billing */
   appId: string;
   /** Organization UUID — available for marketing-tool billing (site audit) */

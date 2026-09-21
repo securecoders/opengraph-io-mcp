@@ -19,7 +19,7 @@ class GetSiteAuditStatusTool extends BaseTool {
         "Poll the status of a running site audit. Returns the current status " +
         "(QUEUED, CRAWLING, SCORING, COMPLETE, or FAILED), plus progress counters and summary scores " +
         "once the audit finishes.\n\n" +
-        "Call this repeatedly every 5–10 seconds after **startSiteAudit** until status is COMPLETE, " +
+        "Call this repeatedly every 10–15 seconds after **startSiteAudit** until status is COMPLETE, " +
         "then call **getSiteAuditReport** to retrieve the full results.\n\n" +
         "Pick the right tool:\n" +
         "  getSiteAuditStatus → Poll progress after startSiteAudit\n" +

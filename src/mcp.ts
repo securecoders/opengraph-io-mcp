@@ -15,25 +15,7 @@ import {
     SubscribeRequestSchema,
     UnsubscribeRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import tools, { ToolNames } from "@/tools";
-import GetOgDataTool from "@/tools/get-og-data";
-import GetOgScrapeDataTool from "@/tools/get-og-scrape-data";
-import GetOgScreenshotTool from "@/tools/get-og-screenshot";
-import GetOgQueryTool from "@/tools/get-og-query";
-import GetOgExtractTool from "@/tools/get-og-extract";
-import GetOgMarkdownTool from "@/tools/get-og-markdown";
-// Image generation tools
-import GenerateImageTool from "@/tools/generate-image";
-import IterateImageTool from "@/tools/iterate-image";
-import InspectImageSessionTool from "@/tools/inspect-image-session";
-import ExportImageAssetTool from "@/tools/export-image-asset";
-// Site Audit tools
-import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
-import StartSiteAuditTool from "@/tools/start-site-audit";
-import GetSiteAuditStatusTool from "@/tools/get-site-audit-status";
-import GetSiteAuditReportTool from "@/tools/get-site-audit-report";
-import PreviewPageAuditTool from "@/tools/preview-page-audit";
-import GetLinkPreviewTool from "@/tools/get-link-preview";
+import { resolveTool, toolDefinitions } from "@/tools/registry";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
 
@@ -62,7 +44,7 @@ enum PromptName {
     RUN_SITE_AUDIT = "run-site-audit",
 }
 
-const SERVER_INSTRUCTIONS = `\
+export const SERVER_INSTRUCTIONS = `\
 OpenGraph.io MCP Server — fetch, analyze, and extract content from any URL on the web.
 
 DATA TOOLS — choose based on your goal:
@@ -74,8 +56,10 @@ getOgData
 
 getOgMarkdown
   Convert a URL's HTML to clean, readable Markdown — strips navigation, ads, and boilerplate.
-  IMPORTANT: auto_render does not apply to the markdown pipeline. For JavaScript-heavy SPAs you
-  must explicitly pass full_render: true, or you may receive an empty or incomplete result.
+  For a long page, pass query + chunking:true to get back only the passages that answer your
+  question, ranked by relevance, instead of the whole document. include_links / include_images /
+  include_headings return structured link, image and outline data without a second scrape.
+  Set ai_sanitize:true when the text will be fed to a model — it reports prompt-injection risk.
 
 getOgScrapeData
   Fetch the raw HTML of a URL. Use for custom parsing, link extraction, or when you need the
@@ -113,7 +97,15 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
                        crawl. URLs can come from discoverSiteUrls, a codebase route scan, a sitemap,
                        or a manually provided list — discoverSiteUrls is NOT required first.
                        Returns an auditId immediately.
-  getSiteAuditStatus — Poll progress (QUEUED → CRAWLING → SCORING → COMPLETE). Call every 5–10s.
+  getSiteAuditStatus — Poll progress (QUEUED → CRAWLING → SCORING → COMPLETE). Call every 10–15s;
+                       a full audit takes minutes, and each poll costs the caller a turn.
+  listSiteAudits    — Past audits for the organization, newest first. Filter by domain (q), status,
+                       date range, or websiteId to build one site's history. Use it to find an
+                       auditId, or to track a score over time.
+  getSiteAuditChanges — What changed since the previous run, plus what to fix first. Combines the
+                       change report (new / fixed / regressed issues, pages added or removed, score
+                       delta) with the prioritized groups. A 'regressed' issue previously verified
+                       as fixed and came back — tracked across runs, not by diffing two lists.
   getSiteAuditReport — Retrieve the full report once COMPLETE: overall score 0–100, AI-generated
                        executive summary, top priorities, critical issues with business impact,
                        per-page scores and check breakdowns, OG coverage rates.
@@ -136,6 +128,36 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
   4. The quota is monthly (not per-audit). If the audit is clamped, tell the user how many pages
      remain in their monthly quota and link them to the billing page to upgrade.
   Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
+
+MONITORING (recurring audits over time):
+  getConnectionContext — Which organization this connection acts for, and which Site Audit features
+                       the plan allows. Call it when a result is unexpectedly empty: it separates
+                       "no data" from "wrong organization". Every tool here defaults to that org.
+  listWebsites      — Websites the org has audited, with current score and trend, critical issue
+                       count, regressions, and next scheduled run. Pass websiteId for one in detail.
+  getMonitoringSchedule — Read a website's recurring-audit settings: frequency, anchored day/time,
+                       paused state, next run.
+  setMonitoringSchedule — Turn recurring audits on/off or change them. COMMITS ONGOING QUOTA SPEND
+                       and can trigger alert email, so confirm with the user first. enabled:false
+                       DELETES the configuration — use paused:true to keep it. Alert recipients are
+                       dashboard-only. Needs the scheduling entitlement.
+
+FIX LIST (developer handoff — hand-authored, not regenerated by re-auditing):
+  listFixItems      — Proposed metadata changes and notes saved against an audit, grouped by page.
+                       Returns item IDs for deleteFixItem.
+  saveFixItems      — Record proposed changes for one page. OVERWRITES existing items for the same
+                       page and field, so read first and confirm. proposedValue must be non-empty
+                       and different from originalValue — blank or unchanged means "remove" upstream
+                       and is rejected here.
+  deleteFixItem     — Permanently remove one entry. Cannot be regenerated; confirm first.
+  exportFixItemsCsv — The fix list as CSV text for handoff. PDF export is dashboard-only.
+
+DESTRUCTIVE / SENDING (confirm with the user before calling):
+  deleteSiteAudit   — Permanently deletes an audit and all its results. Cannot be undone. Re-running
+                       creates a new audit; it does not restore the old one.
+  emailSiteAuditReport — Sends real email with PDF attachments, EVERY time it is called. Not
+                       idempotent — never retry on timeout without asking. Goes only to the
+                       authenticated account's own address; a different recipient is dashboard-only.
 
 IMAGE GENERATION TOOLS:
   generateImage, iterateImage, inspectImageSession, exportImageAsset — create and refine diagrams,
@@ -912,7 +934,7 @@ startSiteAudit({
 
 ---
 
-## Step 3 — Poll status every 5–10 seconds
+## Step 3 — Poll status every 10–15 seconds
 
 \`\`\`
 getSiteAuditStatus({ auditId: "<auditId>" })
@@ -954,7 +976,7 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
     });
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        return { tools };
+        return { tools: toolDefinitions };
     });
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -974,112 +996,15 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
         const accessToken    = authCtx?.accessToken ?? "";
         const isLocal = !sessionId;
         
-        let validatedArgs: any;
-
-        switch (name) {
-            case ToolNames.GET_OG_DATA:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_data_tool = new GetOgDataTool(appId);
-                validatedArgs = og_data_tool.inputSchema.parse(args);
-                return og_data_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_SCRAPE_DATA:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_scrape_data_tool = new GetOgScrapeDataTool(appId);
-                validatedArgs = og_scrape_data_tool.inputSchema.parse(args);
-                return og_scrape_data_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_SCREENSHOT:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_screenshot_tool = new GetOgScreenshotTool(appId);
-                validatedArgs = og_screenshot_tool.inputSchema.parse(args);
-                return og_screenshot_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_QUERY:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_query_tool = new GetOgQueryTool(appId);
-                validatedArgs = og_query_tool.inputSchema.parse(args);
-                return og_query_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_EXTRACT:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_extract_tool = new GetOgExtractTool(appId);
-                validatedArgs = og_extract_tool.inputSchema.parse(args);
-                return og_extract_tool.execute(validatedArgs);
-
-            case ToolNames.GET_OG_MARKDOWN:
-                if (!isLocal && !appId) {
-                    throw new Error("Could not find App ID for session.");
-                }
-                const og_markdown_tool = new GetOgMarkdownTool(appId);
-                validatedArgs = og_markdown_tool.inputSchema.parse(args);
-                return og_markdown_tool.execute(validatedArgs);
-
-            // Image generation tools (use OG_BASE_URL, no appId required in switch)
-            case ToolNames.GENERATE_IMAGE:
-                const generate_image_tool = new GenerateImageTool(appId);
-                validatedArgs = generate_image_tool.inputSchema.parse(args);
-                return generate_image_tool.execute(validatedArgs);
-
-            case ToolNames.ITERATE_IMAGE:
-                const iterate_image_tool = new IterateImageTool(appId);
-                validatedArgs = iterate_image_tool.inputSchema.parse(args);
-                return iterate_image_tool.execute(validatedArgs);
-
-            case ToolNames.INSPECT_IMAGE_SESSION:
-                const inspect_session_tool = new InspectImageSessionTool(appId);
-                validatedArgs = inspect_session_tool.inputSchema.parse(args);
-                return inspect_session_tool.execute(validatedArgs);
-
-            case ToolNames.EXPORT_IMAGE_ASSET:
-                const export_asset_tool = new ExportImageAssetTool(appId, isLocal);
-                validatedArgs = export_asset_tool.inputSchema.parse(args);
-                return export_asset_tool.execute(validatedArgs);
-
-            // Site Audit tools — require OAuth Bearer token + Site Audit plan
-            case ToolNames.DISCOVER_SITE_URLS:
-                const discover_tool = new DiscoverSiteUrlsTool(accessToken, organizationId);
-                validatedArgs = discover_tool.inputSchema.parse(args);
-                return discover_tool.execute(validatedArgs);
-
-            case ToolNames.START_SITE_AUDIT:
-                const start_audit_tool = new StartSiteAuditTool(accessToken, organizationId);
-                validatedArgs = start_audit_tool.inputSchema.parse(args);
-                return start_audit_tool.execute(validatedArgs);
-
-            case ToolNames.GET_SITE_AUDIT_STATUS:
-                const audit_status_tool = new GetSiteAuditStatusTool(accessToken);
-                validatedArgs = audit_status_tool.inputSchema.parse(args);
-                return audit_status_tool.execute(validatedArgs);
-
-            case ToolNames.GET_SITE_AUDIT_REPORT:
-                const audit_report_tool = new GetSiteAuditReportTool(accessToken);
-                validatedArgs = audit_report_tool.inputSchema.parse(args);
-                return audit_report_tool.execute(validatedArgs);
-
-            case ToolNames.PREVIEW_PAGE_AUDIT:
-                const preview_audit_tool = new PreviewPageAuditTool(accessToken, organizationId);
-                validatedArgs = preview_audit_tool.inputSchema.parse(args);
-                return preview_audit_tool.execute(validatedArgs);
-
-            case ToolNames.GET_LINK_PREVIEW:
-                const link_preview_tool = new GetLinkPreviewTool(accessToken, organizationId);
-                validatedArgs = link_preview_tool.inputSchema.parse(args);
-                return link_preview_tool.execute(validatedArgs);
-
-            default:
-                throw new Error(`Unknown tool: ${name}`);
-        }
+        const tool = resolveTool(name, {
+            appId: appId ?? "",
+            organizationId,
+            accessToken,
+            isLocal,
+        });
+        // `arguments` is optional in the protocol, so a no-arg tool is called
+        // without it — parsing undefined against z.object({}) throws.
+        return tool.execute(tool.inputSchema.parse(args ?? {}));
     });
 
     server.setRequestHandler(CompleteRequestSchema, async (request) => {

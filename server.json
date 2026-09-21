@@ -3,7 +3,7 @@
   "name": "io.github.securecoders/opengraph-io-mcp",
   "title": "OpenGraph.io MCP Server",
   "description": "Fetch web/social data, screenshots, scrape/extract content, generate images, audit SEO & links.",
-  "version": "1.4.0",
+  "version": "2.1.0",
   "homepage": "https://opengraph.io",
   "repository": {
     "url": "https://github.com/securecoders/opengraph-io-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "opengraph-io-mcp",
-      "version": "1.4.0",
+      "version": "2.1.0",
       "transport": {
         "type": "stdio"
       }
