@@ -28,8 +28,18 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Skip when the version is already up. npm's client sometimes retries after a
+      # slow response and the retry reports "cannot publish over", failing the step
+      # on a publish that actually succeeded — which then blocks the registry step
+      # below on every re-run.
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "opengraph-io-mcp@$VERSION" version > /dev/null 2>&1; then
+            echo "opengraph-io-mcp@$VERSION is already on npm - skipping"
+          else
+            npm publish --provenance --access public
+          fi
 
       - name: Install mcp-publisher
         run: |
@@ -39,5 +49,16 @@ jobs:
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc
 
+      # The registry verifies the version exists on npm, and npm's read path lags its
+      # write path by a little. Retry rather than lose a release over seconds.
       - name: Publish to MCP Registry
-        run: ./mcp-publisher publish
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if ./mcp-publisher publish; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed; waiting 30s for npm to catch up"
+            sleep 30
+          done
+          echo "MCP Registry publish failed after 5 attempts"
+          exit 1
