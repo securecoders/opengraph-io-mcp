@@ -1,20 +1,21 @@
 {
   "name": "opengraph-io-mcp",
   "mcpName": "io.github.securecoders/opengraph-io-mcp",
-  "version": "2.1.0",
-  "main": "dist/server.js",
+  "version": "2.2.0",
+  "main": "dist/server-http.js",
   "module": "./src/server-stdio.ts",
   "bin": {
     "opengraph-io-mcp": "dist/server-stdio.js",
     "opengraph-io-mcp-install": "dist/installer.js"
   },
   "scripts": {
+    "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "tsc",
     "postbuild": "tsc-alias",
-    "start": "node dist/server.js",
+    "start": "node dist/server-http.js",
     "start:http": "node dist/server-http.js",
     "start:stdio": "node dist/server-stdio.js",
-    "dev": "ts-node-dev -r tsconfig-paths/register src/server.ts",
+    "dev": "ts-node-dev -r tsconfig-paths/register src/server-http.ts",
     "dev:stdio": "ts-node-dev -r tsconfig-paths/register src/server-stdio.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -39,6 +40,9 @@
   ],
   "author": "securecoders",
   "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
   "description": "MCP server for OpenGraph.io \u2014 fetch web/social data, screenshots, scrape, extract, convert to Markdown, generate images, and audit site SEO & link previews.",
   "repository": {
     "type": "git",
@@ -53,7 +57,6 @@
     "express": "^5.1.0",
     "jose": "^6.2.3",
     "module-alias": "^2.2.3",
-    "ts-node": "^10.9.2",
     "zod": "^3.24.0",
     "zod-to-json-schema": "^3.24.5"
   },
@@ -61,6 +64,7 @@
     "@types/express": "^5.0.1",
     "@types/node": "^22.14.1",
     "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3",
