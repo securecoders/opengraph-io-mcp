@@ -497,13 +497,16 @@ opengraph-io-mcp --app-id YOUR_APP_ID
 
 This mode allows the server to be invoked directly by other applications that use MCP.
 
-### HTTP/SSE Transport
+### Streamable HTTP Transport
 
-This method runs a web server that can be accessed over HTTP and uses SSE for streaming:
+This method runs a web server that can be accessed over HTTP:
 
 ```
 npm start
 ```
+
+The legacy SSE transport (`/sse` + `/message`) has been removed. It had no authentication and
+shared a single connection across every client.
 
 ## Troubleshooting
 

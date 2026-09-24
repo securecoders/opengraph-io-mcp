@@ -8,6 +8,11 @@ process.env.OG_IMAGE_AGENT_URL = "http://unmocked.invalid";
 delete process.env.APP_ID;
 delete process.env.OPENGRAPH_APP_ID;
 
+// Kept so a test that genuinely needs the network (oauth.test.ts serves a JWKS
+// over loopback) can restore it deliberately, rather than the guard forcing it
+// to mock the very thing it is trying to exercise.
+(globalThis as any).__realFetch = globalThis.fetch;
+
 globalThis.fetch = (async (input: unknown) => {
   throw new Error(`Unmocked network call to ${String(input)}`);
 }) as unknown as typeof fetch;

@@ -1,4 +1,5 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { randomUUID } from "node:crypto";
 import { type Request, type Response } from "express";
 import { createServer } from "../mcp.js";
@@ -34,7 +35,16 @@ export interface SessionEntry {
 
 export const sessions = new Map<string, SessionEntry>();
 
-const SESSION_IDLE_MS = Number(process.env.MCP_SESSION_IDLE_MS || 30 * 60 * 1000);
+const DEFAULT_SESSION_IDLE_MS = 30 * 60 * 1000;
+
+// Number("abc") is NaN, and NaN poisons both the interval delay and the cutoff
+// comparison below — every session would be swept on every tick.
+export function resolveIdleMs(): number {
+  const parsed = Number(process.env.MCP_SESSION_IDLE_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SESSION_IDLE_MS;
+}
+
+const SESSION_IDLE_MS = resolveIdleMs();
 
 // DELETE /mcp now requires a valid credential, so a client whose token expired
 // can no longer release its own session — and the entry holds that client's
@@ -99,6 +109,19 @@ export function sendUnauthorized(res: Response): void {
   });
 }
 
+/**
+ * The transport's own contract for an unrecognised session is 404 with -32001,
+ * and that is the status clients treat as "re-initialize". Answering 400 leaves
+ * a client whose session was swept unable to recover without a restart.
+ */
+export function sendSessionNotFound(res: Response): void {
+  res.status(404).json({
+    jsonrpc: "2.0",
+    error: { code: -32001, message: "Session not found" },
+    id: null,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // POST /mcp
 // ---------------------------------------------------------------------------
@@ -106,30 +129,42 @@ export function sendUnauthorized(res: Response): void {
 export async function handlePost(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
-  if (sessionId && sessions.has(sessionId)) {
-    // Re-evaluate auth on every request to pick up token refreshes. A missing or
-    // invalid credential must fail here: serving the request would run tools —
-    // including deletes and report email — as whoever opened the session.
-    const ctx = await extractAuth(req);
-    if (!ctx) {
-      sendUnauthorized(res);
+  // Re-evaluate auth on every request to pick up token refreshes, and before
+  // anything reveals whether a session exists. A missing or invalid credential
+  // must fail here: serving the request would run tools — including deletes and
+  // report email — as whoever opened the session.
+  const authCtx = await extractAuth(req);
+  if (!authCtx) {
+    sendUnauthorized(res);
+    return;
+  }
+
+  if (sessionId) {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      sendSessionNotFound(res);
       return;
     }
-    const session = sessions.get(sessionId)!;
-    if (ownerKey(ctx) !== session.owner) {
+    if (ownerKey(authCtx) !== session.owner) {
       res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
       return;
     }
-    setAuthContext(sessionId, ctx);
+    setAuthContext(sessionId, authCtx);
     session.lastSeenAt = Date.now();
     await session.transport.handleRequest(req, res, req.body);
     return;
   }
 
-  // New session — resolve auth first; reject before creating server/transport
-  const authCtx = await extractAuth(req);
-  if (!authCtx) {
-    sendUnauthorized(res);
+  // Only an initialize may open a session. Without this the transport rejects
+  // the request *after* createServer() has already started a 10s interval that
+  // nothing reclaims: the entry never reaches `sessions`, so the sweep below
+  // never sees it. One leaked server, transport and timer per rejected POST.
+  if (!isInitializeRequest(req.body)) {
+    res.status(400).json({
+      jsonrpc: "2.0",
+      error: { code: -32000, message: "Bad Request: Server not initialized" },
+      id: null,
+    });
     return;
   }
 
@@ -151,6 +186,13 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
 
   await server.connect(transport);
   await transport.handleRequest(req, res, req.body);
+
+  // onsessioninitialized is what files the entry for the sweep. If the transport
+  // rejected the initialize, it never fired and nothing else will release the
+  // interval this server started.
+  if (!transport.sessionId) {
+    await cleanup().catch(() => {});
+  }
 }
 
 /**
@@ -159,17 +201,19 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
  * failure, so callers just bail when it yields nothing.
  */
 export async function resolveOwnedSession(req: Request, res: Response): Promise<SessionEntry | null> {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (!sessionId || !sessions.has(sessionId)) {
-    res.status(400).json({ error: "Invalid or missing session ID" });
-    return null;
-  }
+  // Credential first: checking existence before auth let anyone with a session
+  // id tell a live one from a dead one without presenting anything.
   const ctx = await extractAuth(req);
   if (!ctx) {
     sendUnauthorized(res);
     return null;
   }
-  const session = sessions.get(sessionId)!;
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  const session = sessionId ? sessions.get(sessionId) : undefined;
+  if (!session) {
+    sendSessionNotFound(res);
+    return null;
+  }
   if (ownerKey(ctx) !== session.owner) {
     res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
     return null;
