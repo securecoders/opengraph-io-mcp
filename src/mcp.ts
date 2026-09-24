@@ -2,8 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
     CallToolRequestSchema,
     CompleteRequestSchema,
-    CreateMessageRequest,
-    CreateMessageResultSchema,
     GetPromptRequestSchema,
     ListPromptsRequestSchema,
     ListResourcesRequestSchema,
@@ -200,34 +198,6 @@ export const createServer = () => {
         }
     }, 10000);
 
-    // Helper method to request sampling from client
-    const requestSampling = async (
-        context: string,
-        uri: string,
-        maxTokens: number = 100
-    ) => {
-        const request: CreateMessageRequest = {
-            method: "sampling/createMessage",
-            params: {
-                messages: [
-                    {
-                        role: "user",
-                        content: {
-                            type: "text",
-                            text: `Resource ${uri} context: ${context}`,
-                        },
-                    },
-                ],
-                systemPrompt: "You are a helpful test server.",
-                maxTokens,
-                temperature: 0.7,
-                includeContext: "thisServer",
-            },
-        };
-
-        return await server.request(request, CreateMessageResultSchema);
-    };
-
     // Resources are dynamically fetched from the og-image-agent API
     // No static resources - assets are accessed via the asset:// URI template
 
@@ -291,9 +261,6 @@ export const createServer = () => {
     server.setRequestHandler(SubscribeRequestSchema, async (request) => {
         const { uri } = request.params;
         subscriptions.add(uri);
-
-        // Request sampling from client when someone subscribes
-        await requestSampling("A new subscription was started", uri);
         return {};
     });
 
