@@ -1,5 +1,13 @@
 import dotenv from "dotenv";
 import { z } from "zod";
+import {
+    OG_API_TIMEOUT_MS,
+    fetchWithTimeout,
+    readErrorBody,
+    readJson,
+    readText,
+    upstreamDetail,
+} from "@/utils/http";
 
 dotenv.config();
 
@@ -187,6 +195,17 @@ function buildQueryParams(options: Record<string, any>, appId: string): string {
 // API client functions
 // ---------------------------------------------------------------------------
 
+const SERVICE = "The OpenGraph API";
+
+const ogFetch = (url: string, init: RequestInit = {}): Promise<Response> =>
+    fetchWithTimeout(SERVICE, url, init, OG_API_TIMEOUT_MS);
+
+/** Without this, a non-2xx body is handed back as data. */
+async function throwFailed(label: string, response: Response): Promise<never> {
+    const detail = upstreamDetail(await readErrorBody(SERVICE, response), response.status);
+    throw new Error(`${label} request failed: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`);
+}
+
 /** Scrape raw HTML from a URL via /api/3.0/scrape. */
 export const scrapeSite = async (
     url: string,
@@ -198,11 +217,12 @@ export const scrapeSite = async (
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     const qs = buildQueryParams(options, actualAppId);
-    const response = await fetch(
+    const response = await ogFetch(
         `${getBaseUrl()}/api/${API_VERSIONS.scrape}/scrape/${encodeURIComponent(url)}?${qs}`,
         { headers: { "Referrer": "mcp" } },
     );
-    return response.text();
+    if (!response.ok) await throwFailed("Scrape API", response);
+    return readText(SERVICE, response);
 };
 
 const OGScreenshotResponseSchema = z.object({
@@ -221,11 +241,12 @@ export const getScreenshotUrl = async (
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     const qs = buildQueryParams(options, actualAppId);
-    const response = await fetch(
+    const response = await ogFetch(
         `${getBaseUrl()}/api/${API_VERSIONS.screenshot}/screenshot/${encodeURIComponent(url)}?${qs}`,
         { headers: { "Referrer": "mcp" } },
     );
-    const data = await response.json();
+    if (!response.ok) await throwFailed("Screenshot API", response);
+    const data = await readJson(SERVICE, response);
     return OGScreenshotResponseSchema.parse(data);
 };
 
@@ -240,11 +261,12 @@ export const getSiteOgData = async (
         throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
     }
     const qs = buildQueryParams(options, actualAppId);
-    const response = await fetch(
+    const response = await ogFetch(
         `${getBaseUrl()}/api/${API_VERSIONS.site}/site/${encodeURIComponent(url)}?${qs}`,
         { headers: { "Referrer": "mcp" } },
     );
-    const data = await response.json() as {
+    if (!response.ok) await throwFailed("Site API", response);
+    const data = await readJson(SERVICE, response) as {
         hybridGraph: any;
         openGraph: any;
         htmlInferred: any;
@@ -277,15 +299,13 @@ export const querySite = async (
     if (responseStructure !== undefined) {
         body.responseStructure = responseStructure;
     }
-    const response = await fetch(url, {
+    const response = await ogFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Referrer": "mcp" },
         body: JSON.stringify(body),
     });
-    if (!response.ok) {
-        throw new Error(`Query API request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    if (!response.ok) await throwFailed("Query API", response);
+    return readJson(SERVICE, response);
 };
 
 /**
@@ -319,7 +339,7 @@ export const extractHtmlElements = async (
         body.selectors = selectors;
     }
 
-    const response = await fetch(
+    const response = await ogFetch(
         `${getBaseUrl()}/api/${API_VERSIONS.extract}/extract?${qs}`,
         {
             method: 'POST',
@@ -328,12 +348,9 @@ export const extractHtmlElements = async (
         },
     );
 
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Extract API request failed: ${response.status} ${response.statusText}${err ? ` — ${err}` : ''}`);
-    }
+    if (!response.ok) await throwFailed("Extract API", response);
 
-    return response.json();
+    return readJson(SERVICE, response);
 };
 
 /** Convert a URL's HTML to clean Markdown via /api/3.0/markdown. */
@@ -349,25 +366,25 @@ export const getSiteMarkdown = async (
     // format is fixed by this client, not the caller: the structured envelope is
     // what lets the tool surface metadata, usage and safety alongside the prose.
     const qs = buildQueryParams({ ...options, format: 'json' }, actualAppId);
-    const response = await fetch(
+    const response = await ogFetch(
         `${getBaseUrl()}/api/${API_VERSIONS.markdown}/markdown/${encodeURIComponent(url)}?${qs}`,
         { headers: { "Referrer": "mcp", "Accept": "application/json" } },
     );
 
-    const body = await response.text();
+    const body = await readText(SERVICE, response);
     if (!response.ok) {
         // A block (422) carries an ai_safety report whose signals include the
         // literal matched injection text. Echoing the raw body would hand the
         // model the very strings the block exists to withhold, so only the
         // message and risk level are surfaced.
-        let detail = body;
+        let detail: string;
         try {
             const parsed = JSON.parse(body);
             const risk = parsed?.ai_safety?.risk_level;
-            detail = [parsed?.error?.message ?? parsed?.message, risk ? `risk: ${risk}` : null]
+            detail = [upstreamDetail(parsed, response.status), risk ? `risk: ${risk}` : null]
                 .filter(Boolean).join(' — ') || response.statusText;
         } catch {
-            detail = body.slice(0, 200);
+            detail = response.statusText;
         }
         throw new Error(`Markdown API request failed: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`);
     }

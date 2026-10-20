@@ -9,8 +9,21 @@
  */
 
 import dotenv from "dotenv";
+import {
+    SITE_AUDIT_TIMEOUT_MS,
+    fetchWithTimeout,
+    pathSegment,
+    readErrorBody,
+    readText,
+    safeUpstreamMessage,
+} from "@/utils/http";
 
 dotenv.config();
+
+const SERVICE = "The Open Graph Audit API";
+
+/** IDs come from the model; one must never re-route the request path. */
+const seg = pathSegment;
 
 // ---------------------------------------------------------------------------
 // Config
@@ -92,24 +105,15 @@ async function apiRequest<T>(
         Accept: responseType === "text" ? "text/csv, text/plain" : "application/json",
     };
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(SERVICE, url, {
         method,
         headers,
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    }, SITE_AUDIT_TIMEOUT_MS);
 
     if (!response.ok) {
-        let errorBody: any;
-        try {
-            errorBody = await response.json();
-        } catch {
-            errorBody = { error: { message: response.statusText } };
-        }
-        const message =
-            (errorBody?.error?.message) ||
-            (errorBody?.message) ||
-            `Request failed with status ${response.status}`;
-        const err = new Error(message) as any;
+        const errorBody: any = await readErrorBody(SERVICE, response);
+        const err = new Error(safeUpstreamMessage(response.status, errorBody)) as any;
         err.status = response.status;
         err.code   = errorBody?.error?.code;
         throw err;
@@ -117,7 +121,7 @@ async function apiRequest<T>(
 
     // Deletes answer 204 with no body; calling .json() on that throws.
     if (response.status === 204) return undefined as T;
-    const text = await response.text();
+    const text = await readText(SERVICE, response);
     if (!text) return undefined as T;
     // CSV export is not JSON — parsing it would throw on the first comma.
     if (responseType === "text") return text as T;
@@ -191,7 +195,7 @@ export const getAuditStatus = async (
     auditId: string,
     accessToken: string,
 ): Promise<{ audit: AuditSummary }> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}`, accessToken);
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}`, accessToken);
 
 /**
  * Retrieve the full structured report for a completed audit.
@@ -201,7 +205,7 @@ export const getAuditReport = async (
     auditId: string,
     accessToken: string,
 ): Promise<{ report: any }> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/report`, accessToken);
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}/report`, accessToken);
 
 /**
  * Run a fast, synchronous audit of a single URL.
@@ -266,14 +270,14 @@ export const getAuditDiff = async (
     accessToken: string,
     baseline?: string,
 ): Promise<any> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/diff`, accessToken, undefined, { baseline });
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}/diff`, accessToken, undefined, { baseline });
 
 /** Issues grouped into fix-first / fix-as-pattern / review-next / low-priority. */
 export const getAuditPriorities = async (
     auditId: string,
     accessToken: string,
 ): Promise<any> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/priorities`, accessToken);
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}/priorities`, accessToken);
 
 // ---------------------------------------------------------------------------
 // Website health and recurring monitoring
@@ -304,14 +308,14 @@ export const getWebsite = async (
     organizationId: string,
     accessToken: string,
 ): Promise<any> =>
-    apiRequest("GET", `/api/v1/site-audit/websites/${websiteId}`, accessToken, undefined, { organizationId });
+    apiRequest("GET", `/api/v1/site-audit/websites/${seg(websiteId)}`, accessToken, undefined, { organizationId });
 
 export const getSchedule = async (
     websiteId: string,
     organizationId: string,
     accessToken: string,
 ): Promise<any> =>
-    apiRequest("GET", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, undefined, { organizationId });
+    apiRequest("GET", `/api/v1/site-audit/websites/${seg(websiteId)}/schedule`, accessToken, undefined, { organizationId });
 
 /**
  * Create or replace a website's recurring-audit schedule.
@@ -326,7 +330,7 @@ export const putSchedule = async (
     accessToken: string,
     schedule: Record<string, unknown>,
 ): Promise<any> =>
-    apiRequest("PUT", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, {
+    apiRequest("PUT", `/api/v1/site-audit/websites/${seg(websiteId)}/schedule`, accessToken, {
         ...schedule,
         organizationId,
     });
@@ -337,7 +341,7 @@ export const deleteSchedule = async (
     organizationId: string,
     accessToken: string,
 ): Promise<void> =>
-    apiRequest("DELETE", `/api/v1/site-audit/websites/${websiteId}/schedule`, accessToken, undefined, { organizationId });
+    apiRequest("DELETE", `/api/v1/site-audit/websites/${seg(websiteId)}/schedule`, accessToken, undefined, { organizationId });
 
 /** Org identity and site-audit entitlements for the connected token. */
 export const getConnectionContext = async (accessToken: string): Promise<any> =>
@@ -360,7 +364,7 @@ export interface FixItemInput {
 }
 
 export const listFixItems = async (auditId: string, accessToken: string): Promise<any> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/fix-items`, accessToken);
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}/fix-items`, accessToken);
 
 /**
  * Upsert fix items for one page. The gateway rejects a blank or unchanged
@@ -372,26 +376,26 @@ export const upsertFixItems = async (
     pageUrl: string,
     items: FixItemInput[],
 ): Promise<any> =>
-    apiRequest("POST", `/api/v1/site-audit/audits/${auditId}/fix-items`, accessToken, { pageUrl, items });
+    apiRequest("POST", `/api/v1/site-audit/audits/${seg(auditId)}/fix-items`, accessToken, { pageUrl, items });
 
 export const deleteFixItem = async (
     auditId: string,
     fixItemId: string,
     accessToken: string,
 ): Promise<void> =>
-    apiRequest("DELETE", `/api/v1/site-audit/audits/${auditId}/fix-items/${fixItemId}`, accessToken);
+    apiRequest("DELETE", `/api/v1/site-audit/audits/${seg(auditId)}/fix-items/${seg(fixItemId)}`, accessToken);
 
 /** Returns raw CSV text, not JSON. */
 export const exportFixItemsCsv = async (auditId: string, accessToken: string): Promise<string> =>
-    apiRequest("GET", `/api/v1/site-audit/audits/${auditId}/fix-items/export.csv`, accessToken, undefined, undefined, "text");
+    apiRequest("GET", `/api/v1/site-audit/audits/${seg(auditId)}/fix-items/export.csv`, accessToken, undefined, undefined, "text");
 
 /** Permanently removes an audit and its results. Answers 204. */
 export const deleteAudit = async (auditId: string, accessToken: string): Promise<void> =>
-    apiRequest("DELETE", `/api/v1/site-audit/audits/${auditId}`, accessToken);
+    apiRequest("DELETE", `/api/v1/site-audit/audits/${seg(auditId)}`, accessToken);
 
 /**
  * Emails the audit report as PDF attachments. The recipient is fixed to the
  * authenticated account by the gateway — no address is sent from here.
  */
 export const emailAuditReport = async (auditId: string, accessToken: string): Promise<any> =>
-    apiRequest("POST", `/api/v1/site-audit/audits/${auditId}/email`, accessToken, {});
+    apiRequest("POST", `/api/v1/site-audit/audits/${seg(auditId)}/email`, accessToken, {});

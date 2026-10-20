@@ -1,4 +1,23 @@
 import { getBaseUrl } from "@/utils/og";
+import {
+    IMAGE_AGENT_TIMEOUT_MS,
+    fetchWithTimeout,
+    pathSegment,
+    readBytes,
+    readErrorBody,
+    readJson,
+    upstreamDetail,
+} from "@/utils/http";
+
+const SERVICE = "The image generation API";
+
+const imageFetch = (url: string, init: RequestInit): Promise<Response> =>
+    fetchWithTimeout(SERVICE, url, init, IMAGE_AGENT_TIMEOUT_MS);
+
+async function throwFailed(action: string, response: Response): Promise<never> {
+    const detail = upstreamDetail(await readErrorBody(SERVICE, response), response.status);
+    throw new Error(`Failed to ${action}: ${detail || response.statusText || `status ${response.status}`}`);
+}
 
 /**
  * Get the base URL for the og-image-agent API
@@ -165,30 +184,21 @@ export interface IterateParams {
 // API functions
 // ============================================
 
-// Type for API error responses
-interface ApiErrorResponse {
-    error?: string;
-}
-
 /**
  * Create a new session
  */
 export const createSession = async (name?: string, app_id?: string): Promise<SessionResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ name }),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        console.error("Image agent API: Failed to create session ", error);
-        throw new Error(`Failed to create session: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("create session", response);
     
-    return await response.json() as SessionResponse;
+    return readJson<SessionResponse>(SERVICE, response);
 };
 
 /**
@@ -197,18 +207,15 @@ export const createSession = async (name?: string, app_id?: string): Promise<Ses
 export const generateImage = async (sessionId: string, params: GenerateParams, app_id?: string): Promise<GenerateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/generate`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}/generate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to generate image: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("generate image", response);
     
-    return await response.json() as GenerateResponse;
+    return readJson<GenerateResponse>(SERVICE, response);
 };
 
 /**
@@ -217,18 +224,15 @@ export const generateImage = async (sessionId: string, params: GenerateParams, a
 export const iterateImage = async (sessionId: string, params: IterateParams, app_id?: string): Promise<IterateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/iterate`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}/iterate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to iterate image: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("iterate image", response);
     
-    return await response.json() as IterateResponse;
+    return readJson<IterateResponse>(SERVICE, response);
 };
 
 /**
@@ -237,17 +241,14 @@ export const iterateImage = async (sessionId: string, params: IterateParams, app
 export const getSession = async (sessionId: string, app_id?: string): Promise<SessionDetails> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to get session: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("get session", response);
     
-    return await response.json() as SessionDetails;
+    return readJson<SessionDetails>(SERVICE, response);
 };
 
 /**
@@ -256,19 +257,15 @@ export const getSession = async (sessionId: string, app_id?: string): Promise<Se
 export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string }> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/assets/${assetId}/file`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/assets/${pathSegment(assetId)}/file`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to get asset file: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("get asset file", response);
     
     const contentType = response.headers.get("Content-Type") || "image/png";
-    const arrayBuffer = await response.arrayBuffer();
-    const data = Buffer.from(arrayBuffer);
+    const data = await readBytes(SERVICE, response);
     
     return { data, contentType };
 };
