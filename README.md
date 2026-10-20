@@ -371,6 +371,8 @@ Export a generated image asset by session and asset ID. Returns the image inline
 
 When running locally (stdio transport), you can optionally provide a `destinationPath` to save the image to disk. On hosted/HTTP transport, the path is ignored and the image is returned inline only.
 
+Files are only written inside one export folder: `~/Downloads/opengraph-mcp` by default, or the folder in `MCP_EXPORT_DIR`. Pass a file name or a path inside that folder; anything outside it is refused, as are hidden files and folders. The extension must match the image type (a name without one gets it added). SVG images are never returned inline, because SVG can carry script; save them to disk instead.
+
 **Examples:**
 ```
 // Inline only (works everywhere)
@@ -383,7 +385,7 @@ exportImageAsset({
 exportImageAsset({
   sessionId: "uuid-from-generate",
   assetId: "uuid-from-generate",
-  destinationPath: "/Users/me/project/images/hero.png"
+  destinationPath: "hero.png"   // saved as ~/Downloads/opengraph-mcp/hero.png
 })
 ```
 

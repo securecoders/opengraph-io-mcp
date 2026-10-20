@@ -1,7 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
-import { iterateImage, getAssetFile, getSession, type IterateParams } from "@/utils/og-image-api";
+import { inlineImage, SVG_NOT_INLINE, iterateImage, getAssetFile, getSession, type IterateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
@@ -109,19 +109,15 @@ For diagram iterations:
             // If succeeded, fetch the image
             if (result.status === "succeeded" && result.assetId) {
                 try {
-                    const { data, contentType } = await getAssetFile(result.assetId, this.appId);
-                    const base64Image = data.toString("base64");
+                    const inline = inlineImage(await getAssetFile(result.assetId, this.appId));
 
                     return {
                         content: [
-                            {
-                                type: "image",
-                                data: base64Image,
-                                mimeType: contentType,
-                            },
+                            ...(inline ? [inline] : []),
                             {
                                 type: "text",
                                 text: JSON.stringify({
+                                    ...(inline ? {} : { note: SVG_NOT_INLINE }),
                                     sessionId: result.sessionId,
                                     assetId: result.assetId,
                                     parentAssetId: result.parentAssetId,

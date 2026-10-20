@@ -1,7 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
-import { createAndGenerate, getAssetFile, type GenerateParams } from "@/utils/og-image-api";
+import { inlineImage, SVG_NOT_INLINE, createAndGenerate, getAssetFile, type GenerateParams } from "@/utils/og-image-api";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 /**
@@ -315,19 +315,15 @@ CROPPING OPTIONS:
             // If succeeded, fetch the image and return it
             if (result.status === "succeeded" && result.assetId) {
                 try {
-                    const { data, contentType } = await getAssetFile(result.assetId, this.appId);
-                    const base64Image = data.toString("base64");
+                    const inline = inlineImage(await getAssetFile(result.assetId, this.appId));
 
                     return {
                         content: [
-                            {
-                                type: "image",
-                                data: base64Image,
-                                mimeType: contentType,
-                            },
+                            ...(inline ? [inline] : []),
                             {
                                 type: "text",
                                 text: JSON.stringify({
+                                    ...(inline ? {} : { note: SVG_NOT_INLINE }),
                                     sessionId: session.sessionId,
                                     assetId: result.assetId,
                                     status: result.status,

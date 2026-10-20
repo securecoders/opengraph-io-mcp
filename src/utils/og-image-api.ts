@@ -251,7 +251,7 @@ export const getSession = async (sessionId: string, app_id?: string): Promise<Se
 /**
  * Get asset file as a Buffer
  */
-export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string }> => {
+export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string; format: ImageKind["format"] }> => {
     const baseUrl = getImageAgentBaseUrl();
     
     const response = await imageFetch(withAppId(`${baseUrl}/assets/${pathSegment(assetId)}/file`, app_id), {
@@ -261,10 +261,63 @@ export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ 
     
     if (!response.ok) await throwFailed("get asset file", response);
     
-    const contentType = response.headers.get("Content-Type") || "image/png";
     const data = await readBytes(SERVICE, response);
-    
-    return { data, contentType };
+    const kind = sniffImage(data);
+    if (!kind) throw new Error("Failed to get asset file: not a recognised image.");
+    return { data, contentType: kind.mime, format: kind.format };
+};
+
+export interface ImageKind {
+    mime:   "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
+    format: "PNG" | "JPEG" | "WEBP" | "SVG";
+}
+
+/**
+ * The type comes from the bytes, never the upstream Content-Type: a mislabelled
+ * SVG would otherwise reach a client as a raster image it renders.
+ */
+export function sniffImage(data: Buffer): ImageKind | null {
+    if (data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+        return { mime: "image/png", format: "PNG" };
+    }
+    if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+        return { mime: "image/jpeg", format: "JPEG" };
+    }
+    if (data.length >= 12 && data.toString("latin1", 0, 4) === "RIFF" && data.toString("latin1", 8, 12) === "WEBP") {
+        return { mime: "image/webp", format: "WEBP" };
+    }
+    const head = data.subarray(0, 1024).toString("utf8").replace(/^\uFEFF/, "").trimStart();
+    if ((head.startsWith("<?xml") || head.startsWith("<svg") || head.startsWith("<!--")) && head.includes("<svg")) {
+        return { mime: "image/svg+xml", format: "SVG" };
+    }
+    return null;
+}
+
+export const SVG_NOT_INLINE =
+    "SVG is not returned inline because it can carry script. Use exportImageAsset with a destinationPath (local only), or the asset url.";
+
+/** Every path that hands image bytes to a client goes through here; SVG never does. */
+export function inlineImage(file: { data: Buffer; contentType: string; format: ImageKind["format"] }):
+    { type: "image"; data: string; mimeType: string } | null {
+    if (file.format === "SVG") return null;
+    return { type: "image", data: file.data.toString("base64"), mimeType: file.contentType };
+}
+
+/**
+ * Loads an asset only if the image session lists it, under the caller's key.
+ * A bare 200 from the asset endpoint says the asset exists, not that it belongs
+ * to the session the caller named; ownership itself is the image agent's to enforce.
+ */
+export const getSessionAsset = async (
+    sessionId: string,
+    assetId: string,
+    app_id?: string,
+): Promise<{ data: Buffer; contentType: string; format: ImageKind["format"] }> => {
+    const session = await getSession(sessionId, app_id);
+    if (!(session.assets ?? []).some((a) => a.assetId === assetId)) {
+        throw new Error(`Asset ${assetId} is not in session ${sessionId}.`);
+    }
+    return getAssetFile(assetId, app_id);
 };
 
 /**

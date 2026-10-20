@@ -63,7 +63,8 @@ describe("resources/subscribe", () => {
 // #19: an asset read used to call the image agent with no app id at all, so
 // over HTTP it always ran as the server's own OPENGRAPH_APP_ID.
 describe("resources/read on an HTTP session", () => {
-  const ASSET_URI = "asset://11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222";
+  const ASSET_ID = "22222222-2222-4222-8222-222222222222";
+  const ASSET_URI = `asset://11111111-1111-4111-8111-111111111111/${ASSET_ID}`;
   const guard = globalThis.fetch;
   let urls: string[] = [];
 
@@ -72,7 +73,10 @@ describe("resources/read on an HTTP session", () => {
     process.env.OPENGRAPH_APP_ID = "operator-key";
     globalThis.fetch = (async (input: unknown) => {
       urls.push(String(input));
-      return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
+      if (String(input).includes("/sessions/")) {
+        return new Response(JSON.stringify({ assets: [{ assetId: ASSET_ID }] }));
+      }
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]), { headers: { "content-type": "image/png" } });
     }) as unknown as typeof fetch;
   });
   afterEach(() => {
@@ -100,12 +104,29 @@ describe("resources/read on an HTTP session", () => {
     }
   });
 
+  it("labels an SVG as bytes so no client renders it", async () => {
+    setAuthContext("res-session", { appId: "33333333-3333-4333-8333-333333333333" });
+    globalThis.fetch = (async (input: unknown) => {
+      if (String(input).includes("/sessions/")) return new Response(JSON.stringify({ assets: [{ assetId: ASSET_ID }] }));
+      return new Response("<svg><script>alert(1)</script></svg>", { headers: { "content-type": "image/png" } });
+    }) as unknown as typeof fetch;
+    const { client, cleanup } = await connectHttp();
+    try {
+      const res: any = await client.readResource({ uri: ASSET_URI });
+      expect(res.contents[0].mimeType).toBe("application/octet-stream");
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+
   it("reads with the session's own key", async () => {
     setAuthContext("res-session", { appId: "33333333-3333-4333-8333-333333333333" });
     const { client, cleanup } = await connectHttp();
     try {
       await client.readResource({ uri: ASSET_URI });
-      expect(new URL(urls[0]).searchParams.get("app_id")).toBe("33333333-3333-4333-8333-333333333333");
+      for (const u of urls) {
+        expect(new URL(u).searchParams.get("app_id")).toBe("33333333-3333-4333-8333-333333333333");
+      }
     } finally {
       await cleanup().catch(() => {});
     }
