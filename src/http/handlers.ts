@@ -6,6 +6,7 @@ import { createServer } from "../mcp.js";
 import { setAuthContext, deleteAppId, type AuthContext } from "@/utils/sessionIdToAppId";
 import { verifyAccessToken } from "@/utils/oauth";
 import { ownerKey } from "@/utils/sessionOwner";
+import { MAX_SESSIONS, MAX_SESSIONS_PER_IP, MAX_SESSIONS_PER_OWNER } from "@/utils/limits";
 
 const MCP_RESOURCE_URL =
   process.env.MCP_RESOURCE_URL || "https://mcp.opengraph.io/mcp";
@@ -31,6 +32,8 @@ export interface SessionEntry {
   /** Who opened this session — every later request must resolve to the same owner. */
   owner: string;
   lastSeenAt: number;
+  /** Client address at creation, for the per-address cap. */
+  ip?: string;
 }
 
 export const sessions = new Map<string, SessionEntry>();
@@ -46,6 +49,15 @@ export function resolveIdleMs(): number {
 
 const SESSION_IDLE_MS = resolveIdleMs();
 
+function evict(sid: string, entry: SessionEntry): void {
+  sessions.delete(sid);
+  deleteAppId(sid);
+  // Dropping the map entry alone would leave an open SSE stream, and the
+  // transport behind it, outside every cap.
+  void entry.transport?.close?.().catch(() => {});
+  void entry.cleanup().catch(() => {});
+}
+
 // DELETE /mcp now requires a valid credential, so a client whose token expired
 // can no longer release its own session — and the entry holds that client's
 // access token. Sweep idle sessions rather than letting them accumulate.
@@ -53,12 +65,28 @@ const sweep = setInterval(() => {
   const cutoff = Date.now() - SESSION_IDLE_MS;
   for (const [sid, entry] of sessions) {
     if (entry.lastSeenAt > cutoff) continue;
-    sessions.delete(sid);
-    deleteAppId(sid);
-    void entry.cleanup().catch(() => {});
+    evict(sid, entry);
   }
 }, Math.min(SESSION_IDLE_MS, 5 * 60 * 1000));
 sweep.unref();
+
+/** Clients that never DELETE would otherwise be refused; drop their own oldest session instead. */
+export function makeRoomForOwner(owner: string): void {
+  let count = 0;
+  let oldest: [string, SessionEntry] | undefined;
+  for (const pair of sessions) {
+    if (pair[1].owner !== owner) continue;
+    count += 1;
+    if (!oldest || pair[1].lastSeenAt < oldest[1].lastSeenAt) oldest = pair;
+  }
+  if (count >= MAX_SESSIONS_PER_OWNER && oldest) evict(oldest[0], oldest[1]);
+}
+
+export function countSessionsFromIp(ip: string): number {
+  let count = 0;
+  for (const entry of sessions.values()) if (entry.ip === ip) count += 1;
+  return count;
+}
 
 // ---------------------------------------------------------------------------
 // Auth helpers
@@ -168,12 +196,33 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const owner = ownerKey(authCtx);
+  if (sessions.size >= MAX_SESSIONS) {
+    res.setHeader("Retry-After", "60");
+    res.status(503).json({
+      jsonrpc: "2.0",
+      error: { code: -32000, message: "Server is at capacity. Retry shortly." },
+      id: null,
+    });
+    return;
+  }
+  const ip = req.ip;
+  if (ip && countSessionsFromIp(ip) >= MAX_SESSIONS_PER_IP) {
+    res.status(429).json({
+      jsonrpc: "2.0",
+      error: { code: -32000, message: "Too many open sessions from this address. Close some and retry." },
+      id: null,
+    });
+    return;
+  }
+  makeRoomForOwner(owner);
+
   const { server, cleanup } = createServer();
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     onsessioninitialized: (sid) => {
-      sessions.set(sid, { transport, cleanup, owner: ownerKey(authCtx), lastSeenAt: Date.now() });
+      sessions.set(sid, { transport, cleanup, owner, ip, lastSeenAt: Date.now() });
       // Bind the resolved auth context to the real session ID
       setAuthContext(sid, authCtx);
     },

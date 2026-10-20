@@ -16,6 +16,13 @@ import {
 import { resolveTool, toolDefinitions } from "@/tools/registry";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getAssetFile } from "@/utils/og-image-api";
+import {
+    CALL_BURST,
+    CALL_REFILL_PER_SEC,
+    MAX_SUBSCRIPTIONS,
+    MAX_SUBSCRIPTION_URI_CHARS,
+    TokenBucket,
+} from "@/utils/limits";
 
 /* Input schemas for tools implemented in this server */
 
@@ -187,6 +194,11 @@ export const createServer = () => {
     let subscriptions: Set<string> = new Set();
     let subsUpdateInterval: NodeJS.Timeout | undefined;
     let logLevel: LoggingLevel = "debug";
+    // Only tool calls and resource reads cost upstream work; credits cap the bill, not our load.
+    // stdio has no session id and one local user, so the budget only applies over HTTP.
+    const callBudget = new TokenBucket(CALL_BURST, CALL_REFILL_PER_SEC);
+    const overBudget = (): boolean =>
+        Boolean((server.transport as any)?.sessionId) && !callBudget.take();
 
     // Set up update interval for subscribed resources
     subsUpdateInterval = setInterval(() => {
@@ -197,6 +209,7 @@ export const createServer = () => {
             });
         }
     }, 10000);
+    subsUpdateInterval.unref();
 
     // Resources are dynamically fetched from the og-image-agent API
     // No static resources - assets are accessed via the asset:// URI template
@@ -222,6 +235,9 @@ export const createServer = () => {
     });
 
     server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+        if (overBudget()) {
+            throw new Error("Too many requests in this session. Wait a few seconds and try again.");
+        }
         const uri = request.params.uri;
 
         // Handle asset:// URIs
@@ -260,6 +276,12 @@ export const createServer = () => {
 
     server.setRequestHandler(SubscribeRequestSchema, async (request) => {
         const { uri } = request.params;
+        if (uri.length > MAX_SUBSCRIPTION_URI_CHARS) {
+            throw new Error("Resource URI is too long.");
+        }
+        if (!subscriptions.has(uri) && subscriptions.size >= MAX_SUBSCRIPTIONS) {
+            throw new Error(`A session can hold at most ${MAX_SUBSCRIPTIONS} subscriptions.`);
+        }
         subscriptions.add(uri);
         return {};
     });
@@ -948,6 +970,13 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let { name, arguments: args } = request.params;
+
+        if (overBudget()) {
+            return {
+                content: [{ type: "text", text: "Too many tool calls in this session. Wait a few seconds and try again." }],
+                isError: true,
+            };
+        }
 
         // Resolve credentials from the per-session AuthContext (set by server-http.ts).
         // When running over stdio (local dev), sessionId is absent and tools fall back

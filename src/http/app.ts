@@ -1,10 +1,17 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import {
   handleProtectedResource,
   handlePost,
   handleGet,
   handleDelete,
 } from "@/http/handlers";
+import {
+  SESSION_CREATE_LIMIT,
+  SESSION_CREATE_WINDOW_MS,
+  resolveTrustProxy,
+} from "@/utils/limits";
 
 // Origin is reflected by default. Safe because auth is an Authorization header,
 // never a cookie, so a cross-origin page cannot forge another user's credential.
@@ -72,6 +79,25 @@ function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFun
   });
 }
 
+// Calls inside a session have their own budget (createServer); only opening one is limited here.
+function sessionCreateLimiter() {
+  return rateLimit({
+    windowMs: SESSION_CREATE_WINDOW_MS,
+    limit: SESSION_CREATE_LIMIT,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skip: (req) => Boolean(req.headers["mcp-session-id"]) || !isInitializeRequest(req.body),
+    handler: (req, res) => {
+      console.warn("[mcp] session creation rate limited", { ip: req.ip });
+      res.status(429).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Too many new sessions from this address. Retry later." },
+        id: null,
+      });
+    },
+  });
+}
+
 /**
  * Build the MCP express app without binding a port, so the HTTP layer is
  * reachable from tests. The entrypoint owns listen().
@@ -80,6 +106,7 @@ export function createApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", resolveTrustProxy());
   app.use(securityHeaders);
   app.use(express.json());
   app.use(cors);
@@ -87,7 +114,7 @@ export function createApp(): Express {
   // Request handling lives in @/http/handlers so it can be tested without binding
   // a port. RFC 9728 protected-resource metadata is part of that module.
   app.get("/.well-known/oauth-protected-resource", handleProtectedResource);
-  app.post("/mcp", handlePost);
+  app.post("/mcp", sessionCreateLimiter(), handlePost);
   app.get("/mcp", handleGet);
   app.delete("/mcp", handleDelete);
 

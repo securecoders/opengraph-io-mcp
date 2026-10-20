@@ -453,6 +453,16 @@ MCP_RESOURCE_URL=https://mcp.opengraph.io/mcp
 
 When `OAUTH_JWKS_URL` is not set, bearer-token verification is disabled and only the `x-app-id` fallback is active.
 
+### Behind a proxy
+
+New sessions are rate limited per client IP. Set `MCP_TRUST_PROXY` to the number of proxies in front of the server so the limiter sees the real client address:
+
+```env
+# Default 1 (one ingress or load balancer). Use false when clients connect directly,
+# or a client could set X-Forwarded-For itself and slip past the limit.
+MCP_TRUST_PROXY=1
+```
+
 ### x-app-id fallback / local dev
 
 Omit the OAuth env vars and use a static App ID instead:
