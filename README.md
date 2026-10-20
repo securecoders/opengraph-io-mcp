@@ -37,42 +37,53 @@ For Claude Desktop users, you can also download the `.mcpb` extension for one-cl
 
 ## Authentication
 
-The hosted MCP server supports two authentication methods:
+The hosted server at `https://mcp.opengraph.io/mcp` uses **OAuth 2.1**. You sign in once in your browser and choose which OpenGraph.io API key to authorize; nothing secret goes into a config file, and you can revoke access from the dashboard at any time. OAuth also unlocks the Open Graph Audit and Link Preview tools.
 
-### Option 1 — OAuth 2.1 (recommended for hosted deployments)
-
-OAuth lets you authorize access through your OpenGraph.io dashboard without copying API keys into config files. The MCP client handles the entire browser login flow automatically.
-
-**Supported by:** MCP clients that implement the Authorization Code + PKCE flow (Cursor, Claude Desktop 0.10+, VS Code with the MCP extension).
-
-When the client connects with no credentials, the server returns `401` with a `WWW-Authenticate` header pointing to:
+How it works: when a client connects without credentials, the server answers `401` with a `WWW-Authenticate` header pointing to
 
 ```
 GET /.well-known/oauth-protected-resource
 → { "authorization_servers": ["https://dashboard-api.opengraph.io"] }
 ```
 
-The client then fetches the authorization server metadata and starts the PKCE flow, redirecting your browser to `https://dashboard.opengraph.io/oauth/consent` where you log in and choose which API key to authorize.
+The client discovers the authorization server from there and opens `https://dashboard.opengraph.io/oauth/consent` in your browser. Clients with built in OAuth support need nothing but the URL. Clients that can only launch local commands connect through [`mcp-remote`](https://github.com/punkpeye/mcp-remote), a small bridge that runs on your machine and handles the same browser sign in.
 
-**No client-side config needed** — the client discovers everything automatically.
-
-### Option 2 — `x-app-id` header (deprecated on the hosted server)
-
-> **Deprecated.** The hosted server at `mcp.opengraph.io` still accepts the `x-app-id` header, but support is being removed. Responses to these requests carry a `Deprecation` header. Switch to OAuth (Option 1); it also unlocks the Open Graph Audit and Link Preview tools. The stdio transport and the Claude Desktop extension use your App ID directly and are not affected.
-
-Pass your App ID as an HTTP header. Suitable for local dev, CI, or clients that do not support OAuth.
-
-Replace `YOUR_OPENGRAPH_APP_ID` with your [OpenGraph.io App ID](https://www.opengraph.io/).
+> **The `x-app-id` header is deprecated on the hosted server.** It still works for now, and responses to it carry a `Deprecation` header, but support is being removed. Move to one of the OAuth setups below. Running the server locally (the stdio transport, the CLI installer, or the Claude Desktop extension) uses your App ID directly and is not affected.
 
 ---
 
 ## Client Configuration
 
-All configurations below use the hosted HTTPS transport. OAuth is the recommended approach for shared/production use; the `x-app-id` header config is provided as a fallback.
+Every setup below connects to the hosted server with OAuth. The first time a tool is used, your browser opens to sign in.
 
-### OAuth (no static config needed)
+### Claude Code
 
-For clients that support OAuth discovery, simply point at the hosted URL with no headers — the server will request authorization automatically:
+```bash
+claude mcp add --transport http opengraph https://mcp.opengraph.io/mcp
+```
+
+Then run `/mcp` inside Claude Code and choose **opengraph** to sign in.
+
+### Claude Desktop
+
+**Settings → Connectors → Add custom connector**, name it `OpenGraph`, and enter `https://mcp.opengraph.io/mcp`. Claude Desktop opens your browser to sign in.
+
+If you prefer the config file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows), use the `mcp-remote` bridge:
+
+```json
+{
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@0.14.3", "https://mcp.opengraph.io/mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Config location: `~/.cursor/mcp.json`
 
 ```json
 {
@@ -84,133 +95,63 @@ For clients that support OAuth discovery, simply point at the hosted URL with no
 }
 ```
 
-### x-app-id fallback
-
-> **Deprecated on the hosted server.** See [Option 2](#option-2--x-app-id-header-deprecated-on-the-hosted-server). Prefer OAuth.
-
-If your client does not support OAuth, or you prefer static config:
-
-### Claude Desktop
-
-Config location:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "opengraph": {
-      "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
-      }
-    }
-  }
-}
-```
-
-### Claude Code
-
-One-command installation:
-
-```bash
-claude mcp add --transport http --header "x-app-id: YOUR_OPENGRAPH_APP_ID" opengraph https://mcp.opengraph.io/mcp
-```
-
-### Cursor
-
-Config location: `~/.cursor/mcp.json`
-
-```json
-{
-  "mcpServers": {
-    "opengraph": {
-      "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
-      }
-    }
-  }
-}
-```
-
 ### VS Code
 
 Config location: `.vscode/mcp.json` (in your project directory)
 
-VS Code supports input prompts for secure credential handling:
-
 ```json
 {
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "opengraph-app-id",
-      "description": "OpenGraph App ID",
-      "password": true
-    }
-  ],
   "servers": {
     "opengraph": {
       "type": "http",
-      "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "${input:opengraph-app-id}"
-      }
+      "url": "https://mcp.opengraph.io/mcp"
     }
   }
 }
 ```
 
-### Windsurf
+### Windsurf, JetBrains AI Assistant, Zed and other clients
 
-Config location: `~/.codeium/windsurf/mcp_config.json`
+If your client supports OAuth for remote servers, point it at `https://mcp.opengraph.io/mcp` with no headers. Otherwise connect through `mcp-remote`:
+
+**Windsurf** (`~/.codeium/windsurf/mcp_config.json`) and **JetBrains AI Assistant**:
 
 ```json
 {
   "mcpServers": {
     "opengraph": {
-      "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
-      }
+      "command": "npx",
+      "args": ["-y", "mcp-remote@0.14.3", "https://mcp.opengraph.io/mcp"]
     }
   }
 }
 ```
 
-### JetBrains AI Assistant
-
-Add to your JetBrains AI Assistant MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "opengraph": {
-      "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
-      }
-    }
-  }
-}
-```
-
-### Zed
-
-Config location: `~/.config/zed/settings.json`
-
-Note: Zed uses `context_servers` instead of `mcpServers`:
+**Zed** (`~/.config/zed/settings.json`, which uses `context_servers`):
 
 ```json
 {
   "context_servers": {
     "opengraph": {
-      "transport": "http",
+      "command": "npx",
+      "args": ["-y", "mcp-remote@0.14.3", "https://mcp.opengraph.io/mcp"]
+    }
+  }
+}
+```
+
+`mcp-remote` stores its sign in under `~/.mcp-auth`. Delete that folder to sign out.
+
+### Legacy `x-app-id` header (deprecated)
+
+Only for setups that cannot use OAuth yet, while the hosted server still accepts it. Send your [OpenGraph.io App ID](https://www.opengraph.io/) as a header; Open Graph Audit and Link Preview tools are not available this way.
+
+```json
+{
+  "mcpServers": {
+    "opengraph": {
       "url": "https://mcp.opengraph.io/mcp",
-      "headers": {
-        "x-app-id": "YOUR_OPENGRAPH_APP_ID"
-      }
+      "headers": { "x-app-id": "YOUR_OPENGRAPH_APP_ID" }
     }
   }
 }
@@ -218,7 +159,7 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 
 ## Available Tools
 
-> **Two authentication tiers:** Data and Image Generation tools work with either OAuth or a simple `x-app-id` API key — including the stdio transport and the Claude Desktop extension. Open Graph Audit and Link Preview tools require OAuth (hosted HTTPS transport only), since they bill against your organization's plan rather than a single API key.
+> **Two authentication tiers:** Data and Image Generation tools work with OAuth, and also with a plain App ID when you run the server locally (the stdio transport or the Claude Desktop extension). Open Graph Audit and Link Preview tools require OAuth on the hosted server, since they bill against your organization's plan rather than a single API key.
 
 ### OpenGraph.io Data Tools
 
