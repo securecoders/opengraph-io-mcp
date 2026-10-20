@@ -16,6 +16,7 @@ import {
   SESSION_CREATE_WINDOW_MS,
   resolveTrustProxy,
 } from "@/utils/limits";
+import { logEvent, logSampled } from "@/utils/log";
 
 // No origin is allowed cross-origin unless named in MCP_ALLOWED_ORIGINS. MCP
 // clients are not browsers and never send Origin, so they are unaffected; a
@@ -67,8 +68,16 @@ function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFun
     : 500;
   const clientError = status >= 400 && status < 500;
 
+  // Never the error object itself: an upstream error can carry request config,
+  // headers and a URL with the caller's app_id.
   if (!clientError) {
-    console.error("[mcp] unhandled error", err);
+    const e = err as { name?: unknown; code?: unknown; message?: unknown };
+    logEvent("server.error", {
+      status,
+      name: typeof e?.name === "string" ? e.name : undefined,
+      code: typeof e?.code === "string" ? e.code : undefined,
+      message: typeof e?.message === "string" ? e.message.slice(0, 200) : undefined,
+    });
   }
 
   if (res.headersSent) return;
@@ -92,7 +101,7 @@ function sessionCreateLimiter() {
     legacyHeaders: false,
     skip: (req) => Boolean(req.headers["mcp-session-id"]) || !isInitializeRequest(req.body),
     handler: (req, res) => {
-      console.warn("[mcp] session creation rate limited", { ip: req.ip });
+      logSampled(req.ip ?? "unknown", "session.rate_limited", { ip: req.ip });
       res.status(429).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Too many new sessions from this address. Retry later." },

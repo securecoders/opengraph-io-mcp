@@ -1,12 +1,18 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { type Request, type Response } from "express";
 import { createServer } from "../mcp.js";
 import { setAuthContext, deleteAppId, type AuthContext } from "@/utils/sessionIdToAppId";
 import { verifyAccessToken } from "@/utils/oauth";
 import { ownerKey } from "@/utils/sessionOwner";
 import { MAX_SESSIONS, MAX_SESSIONS_PER_IP, MAX_SESSIONS_PER_OWNER } from "@/utils/limits";
+import { keyFingerprint, logEvent, logSampled, principalForLog } from "@/utils/log";
+
+export { keyFingerprint };
+
+/** Enough of a session id to correlate log lines, not enough to use it. */
+const shortId = (sid: string): string => sid.slice(0, 8);
 
 const MCP_RESOURCE_URL =
   process.env.MCP_RESOURCE_URL || "https://mcp.opengraph.io/mcp";
@@ -51,7 +57,8 @@ export function resolveIdleMs(): number {
 
 const SESSION_IDLE_MS = resolveIdleMs();
 
-function evict(sid: string, entry: SessionEntry): void {
+function evict(sid: string, entry: SessionEntry, reason: string): void {
+  logEvent("session.closed", { session: shortId(sid), reason });
   sessions.delete(sid);
   deleteAppId(sid);
   // Dropping the map entry alone would leave an open SSE stream, and the
@@ -67,7 +74,7 @@ export function sweepSessions(now = Date.now()): void {
   const cutoff = now - SESSION_IDLE_MS;
   for (const [sid, entry] of sessions) {
     if (entry.lastSeenAt <= cutoff) {
-      evict(sid, entry);
+      evict(sid, entry, "idle");
       continue;
     }
     // An expired token is no use to anyone and must not sit in memory. The
@@ -75,6 +82,7 @@ export function sweepSessions(now = Date.now()): void {
     if (entry.credentialExpiresAt !== undefined && entry.credentialExpiresAt <= now) {
       deleteAppId(sid);
       entry.credentialExpiresAt = undefined;
+      logEvent("session.credential_expired", { session: shortId(sid) });
     }
   }
 }
@@ -91,7 +99,7 @@ export function makeRoomForOwner(owner: string): void {
     count += 1;
     if (!oldest || pair[1].lastSeenAt < oldest[1].lastSeenAt) oldest = pair;
   }
-  if (count >= MAX_SESSIONS_PER_OWNER && oldest) evict(oldest[0], oldest[1]);
+  if (count >= MAX_SESSIONS_PER_OWNER && oldest) evict(oldest[0], oldest[1], "owner_limit");
 }
 
 export function countSessionsFromIp(ip: string): number {
@@ -128,9 +136,15 @@ function markDeprecated(res: Response): void {
   res.setHeader("Link", DEPRECATION_LINK);
 }
 
-/** A short fingerprint, never the key: enough to count distinct callers. */
-export function keyFingerprint(appId: string): string {
-  return createHash("sha256").update(appId).digest("hex").slice(0, 12);
+// Why extractAuth returned null, for the log line written by whoever rejects.
+const authFailures = new WeakMap<object, string>();
+
+function logRejected(req: Request): void {
+  logSampled(req.ip ?? "unknown", "auth.rejected", { reason: authFailures.get(req) ?? "missing", method: req.method, ip: req.ip });
+}
+
+function logForbidden(req: Request, sid: string, ctx: AuthContext): void {
+  logEvent("session.forbidden", { session: shortId(sid), principal: principalForLog(ctx), ip: req.ip });
 }
 
 /**
@@ -152,13 +166,24 @@ export async function extractAuth(req: Request): Promise<AuthContext | null> {
         accessToken:    rawToken,
         expiresAt:      claims.expiresAt,
       };
-    } catch {
+    } catch (err: unknown) {
+      // jose's error codes (ERR_JWT_EXPIRED and so on) name the failure without the token.
+      const code = (err as { code?: unknown })?.code;
+      authFailures.set(req, typeof code === "string" ? code : String((err as Error)?.message ?? err).slice(0, 80));
       return null;
     }
   }
 
   const legacyAppId = req.headers["x-app-id"] as string | undefined;
-  if (legacyAppId && legacyAppIdAllowed() && LEGACY_APP_ID_FORMAT.test(legacyAppId)) {
+  if (legacyAppId) {
+    if (!legacyAppIdAllowed()) {
+      authFailures.set(req, "legacy_disabled");
+      return null;
+    }
+    if (!LEGACY_APP_ID_FORMAT.test(legacyAppId)) {
+      authFailures.set(req, "legacy_malformed");
+      return null;
+    }
     return { appId: legacyAppId };
   }
 
@@ -205,6 +230,7 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
   // report email — as whoever opened the session.
   const authCtx = await extractAuth(req);
   if (!authCtx) {
+    logRejected(req);
     sendUnauthorized(res);
     return;
   }
@@ -216,6 +242,7 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
       return;
     }
     if (ownerKey(authCtx) !== session.owner) {
+      logForbidden(req, sessionId, authCtx);
       res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
       return;
     }
@@ -242,6 +269,7 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
 
   const owner = ownerKey(authCtx);
   if (sessions.size >= MAX_SESSIONS) {
+    logEvent("session.refused", { reason: "capacity", ip: req.ip });
     res.setHeader("Retry-After", "60");
     res.status(503).json({
       jsonrpc: "2.0",
@@ -252,6 +280,7 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
   }
   const ip = req.ip;
   if (ip && countSessionsFromIp(ip) >= MAX_SESSIONS_PER_IP) {
+    logEvent("session.refused", { reason: "ip_limit", ip });
     res.status(429).json({
       jsonrpc: "2.0",
       error: { code: -32000, message: "Too many open sessions from this address. Close some and retry." },
@@ -262,7 +291,7 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
   makeRoomForOwner(owner);
   if (isLegacy(authCtx)) {
     markDeprecated(res);
-    console.warn("[mcp] deprecated x-app-id session opened", { key: keyFingerprint(authCtx.appId) });
+    logEvent("auth.legacy_app_id", { key: keyFingerprint(authCtx.appId), ip });
   }
 
   const { server, cleanup } = createServer();
@@ -277,8 +306,10 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
       });
       // Bind the resolved auth context to the real session ID
       setAuthContext(sid, authCtx);
+      logEvent("session.opened", { session: shortId(sid), principal: principalForLog(authCtx), ip });
     },
     onsessionclosed: async (sid) => {
+      logEvent("session.closed", { session: shortId(sid), reason: "client" });
       sessions.delete(sid);
       deleteAppId(sid);
       await cleanup();
@@ -306,6 +337,7 @@ export async function resolveOwnedSession(req: Request, res: Response): Promise<
   // id tell a live one from a dead one without presenting anything.
   const ctx = await extractAuth(req);
   if (!ctx) {
+    logRejected(req);
     sendUnauthorized(res);
     return null;
   }
@@ -316,6 +348,7 @@ export async function resolveOwnedSession(req: Request, res: Response): Promise<
     return null;
   }
   if (ownerKey(ctx) !== session.owner) {
+    logForbidden(req, sessionId!, ctx);
     res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
     return null;
   }

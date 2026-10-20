@@ -160,3 +160,25 @@ describe("unknown tools", () => {
     expect(out.ok ? JSON.stringify(out.res) : out.message).toMatch(/notATool/);
   });
 });
+
+describe("tool call log", () => {
+  it("records the tool and outcome, never the arguments", async () => {
+    const spy = (await import("vitest")).vi.spyOn(console, "error").mockImplementation(() => {});
+    setAuthContext(SID, { appId: "", accessToken: "" });
+    await callFor(ToolNames.START_SITE_AUDIT, { domain: "secret-domain.test" }, SID);
+    const lines = spy.mock.calls.map((c) => String(c[0]));
+    const line = lines.find((l) => l.includes('"tool.call"'));
+    expect(JSON.parse(line!)).toMatchObject({ tool: ToolNames.START_SITE_AUDIT, session: SID.slice(0, 8) });
+    expect(lines.join("\n")).not.toContain("secret-domain.test");
+    spy.mockRestore();
+  });
+
+  it("no longer advertises the placeholder logging capability", async () => {
+    const { client, cleanup } = await connect();
+    try {
+      expect(client.getServerCapabilities()?.logging).toBeUndefined();
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+});

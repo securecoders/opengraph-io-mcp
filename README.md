@@ -486,6 +486,15 @@ New sessions are rate limited per client IP. Set `MCP_TRUST_PROXY` to the number
 MCP_TRUST_PROXY=1
 ```
 
+### Logs
+
+The HTTP server writes one JSON line per security event to stderr: `auth.rejected` (with a reason),
+`auth.legacy_app_id`, `session.opened`, `session.closed`, `session.forbidden`, `session.refused`,
+`session.rate_limited`, `session.credential_expired`, `server.error` and `tool.call` (tool name and
+outcome only). No line ever contains an API key, token or tool argument; keys appear as a 12 character
+fingerprint. Events anyone can trigger without a credential are capped at five per address per minute,
+with the number dropped reported on the next line.
+
 ### x-app-id fallback / local dev
 
 Omit the OAuth env vars and use a static App ID instead:

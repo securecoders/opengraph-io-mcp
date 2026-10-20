@@ -15,6 +15,7 @@ import { verifyAccessToken } from "@/utils/oauth";
 import { createServer } from "../src/mcp.js";
 import { handlePost, handleGet, handleDelete, sessions, resolveIdleMs, sweepSessions, keyFingerprint } from "@/http/handlers";
 import { getAuthContext, setAuthContext } from "@/utils/sessionIdToAppId";
+import { logSampled } from "@/utils/log";
 
 const SID = "session-1";
 
@@ -140,7 +141,7 @@ describe("legacy x-app-id sessions", () => {
   });
 
   it("logs a new legacy session by fingerprint, never by key", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     const req = {
       headers: { "x-app-id": KEY_A },
       body: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
@@ -148,6 +149,7 @@ describe("legacy x-app-id sessions", () => {
     await handlePost(req, makeRes() as any).catch(() => {});
 
     const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain("auth.legacy_app_id");
     expect(logged).toContain(keyFingerprint(KEY_A));
     expect(logged).not.toContain(KEY_A);
     warn.mockRestore();
@@ -370,5 +372,60 @@ describe("bearer sessions", () => {
     const res = makeRes();
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
     expect(res.headers["Deprecation"]).toBeUndefined();
+  });
+});
+
+// #44: nothing recorded who was refused, who opened or lost a session, or which
+// tools ran. Each event is one JSON line on stderr, with no key or token in it.
+describe("security events", () => {
+  function events(spy: any): any[] {
+    return spy.mock.calls.map((c: any[]) => { try { return JSON.parse(c[0]); } catch { return null; } }).filter(Boolean);
+  }
+
+  it("records why a request was refused, without the token", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(verifyAccessToken).mockRejectedValue(Object.assign(new Error("exp claim timestamp check failed"), { code: "ERR_JWT_EXPIRED" }));
+    await handlePost({ ...makeReq({ "mcp-session-id": SID, authorization: "Bearer secret.jwt.value" }), ip: "198.51.100.10" }, makeRes() as any);
+
+    const e = events(spy).find((x) => x.event === "auth.rejected");
+    expect(e).toMatchObject({ reason: "ERR_JWT_EXPIRED" });
+    expect(JSON.stringify(spy.mock.calls)).not.toContain("secret.jwt.value");
+    spy.mockRestore();
+  });
+
+  it("records a missing credential", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await handleGet({ ...makeReq({ "mcp-session-id": SID }), ip: "198.51.100.11" }, makeRes() as any);
+    expect(events(spy).find((x) => x.event === "auth.rejected")?.reason).toBe("missing");
+    spy.mockRestore();
+  });
+
+  it("records an attempt on someone else's session", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(verifyAccessToken).mockResolvedValue({ subject: "intruder", appId: "k", organizationId: "o", scope: "mcp" });
+    await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
+    expect(events(spy).find((x) => x.event === "session.forbidden")).toMatchObject({ principal: "sub:intruder", session: SID.slice(0, 8) });
+    spy.mockRestore();
+  });
+
+  it("records an idle eviction", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    sessions.get(SID)!.lastSeenAt = 0;
+    sweepSessions(Date.now());
+    expect(events(spy).find((x) => x.event === "session.closed")).toMatchObject({ reason: "idle" });
+    spy.mockRestore();
+  });
+});
+
+describe("unauthenticated events are sampled", () => {
+  it("logs the first few per address per minute, then carries the dropped count", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (let i = 0; i < 50; i++) logSampled("203.0.113.50", "test.flood", {}, 1_000);
+    expect(spy).toHaveBeenCalledTimes(5);
+    logSampled("203.0.113.50", "test.flood", {}, 62_000);
+    expect(JSON.parse(spy.mock.calls[5][0])).toMatchObject({ event: "test.flood", suppressed: 45 });
+    logSampled("203.0.113.51", "test.flood", {}, 62_000);
+    expect(spy).toHaveBeenCalledTimes(7);
+    spy.mockRestore();
   });
 });

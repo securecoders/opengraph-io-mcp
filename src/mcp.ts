@@ -7,15 +7,14 @@ import {
     ListResourcesRequestSchema,
     ListResourceTemplatesRequestSchema,
     ListToolsRequestSchema,
-    LoggingLevel,
     ReadResourceRequestSchema,
-    SetLevelRequestSchema,
     SubscribeRequestSchema,
     UnsubscribeRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { resolveTool, toolDefinitions } from "@/tools/registry";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getSessionAsset } from "@/utils/og-image-api";
+import { logEvent } from "@/utils/log";
 import {
     CALL_BURST,
     CALL_REFILL_PER_SEC,
@@ -200,7 +199,6 @@ export const createServer = ({ local = false }: ServerOptions = {}) => {
                 prompts: {},
                 resources: { subscribe: true },
                 tools: {},
-                logging: {},
                 completions: {},
             },
         }
@@ -209,7 +207,6 @@ export const createServer = ({ local = false }: ServerOptions = {}) => {
 
     let subscriptions: Set<string> = new Set();
     let subsUpdateInterval: NodeJS.Timeout | undefined;
-    let logLevel: LoggingLevel = "debug";
     // Only tool calls and resource reads cost upstream work; credits cap the bill, not our load.
     // stdio has one local user, so the budget only applies over HTTP.
     const callBudget = new TokenBucket(CALL_BURST, CALL_REFILL_PER_SEC);
@@ -1034,7 +1031,17 @@ apply only the ones they approve.`,
         });
         // `arguments` is optional in the protocol, so a no-arg tool is called
         // without it — parsing undefined against z.object({}) throws.
-        return tool.execute(tool.inputSchema.parse(args ?? {}));
+        // Name and outcome only: arguments can carry URLs, prompts and page text.
+        const started = Date.now();
+        const session = sessionId ? sessionId.slice(0, 8) : "local";
+        try {
+            const result = await tool.execute(tool.inputSchema.parse(args ?? {}));
+            logEvent("tool.call", { tool: name, session, ok: !result.isError, ms: Date.now() - started });
+            return result;
+        } catch (err) {
+            logEvent("tool.call", { tool: name, session, ok: false, ms: Date.now() - started });
+            throw err;
+        }
     });
 
     server.setRequestHandler(CompleteRequestSchema, async (request) => {
@@ -1058,23 +1065,6 @@ apply only the ones they approve.`,
         }
 
         throw new Error(`Unknown reference type`);
-    });
-
-    server.setRequestHandler(SetLevelRequestSchema, async (request) => {
-        const { level } = request.params;
-        logLevel = level;
-
-        // Demonstrate different log levels
-        await server.notification({
-            method: "notifications/message",
-            params: {
-                level: "debug",
-                logger: "test-server",
-                data: `Logging level set to: ${logLevel}`,
-            },
-        });
-
-        return {};
     });
 
     const cleanup = async () => {
