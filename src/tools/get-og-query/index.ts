@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { querySite } from "@/utils/og";
 import { formatQuery, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -29,7 +30,7 @@ class GetOgQueryTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to query."),
+        url: httpUrl().describe("URL of the webpage to query."),
         query: z.string().min(1).describe(
             "Natural-language question to answer about the page content.",
         ),

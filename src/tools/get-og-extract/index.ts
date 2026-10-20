@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { extractHtmlElements } from "@/utils/og";
 import { formatExtract, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -46,7 +47,7 @@ class GetOgExtractTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to extract content from."),
+        url: httpUrl().describe("URL of the webpage to extract content from."),
         html_elements: z.array(z.string()).optional().describe(
             "List of HTML tag names to extract (e.g. ['h1', 'h2', 'a', 'img', 'p']). " +
             "Defaults to ['title','h1','h2','h3','h4','h5','p'] when neither html_elements nor selectors is provided.",

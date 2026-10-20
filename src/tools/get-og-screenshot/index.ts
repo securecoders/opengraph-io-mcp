@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { getScreenshotUrl } from "@/utils/og";
 import { formatScreenshot, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -37,7 +38,7 @@ class GetOgScreenshotTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to screenshot."),
+        url: httpUrl().describe("URL of the webpage to screenshot."),
         // Screenshot-specific
         full_page: z.boolean().optional().describe(
             "Capture the full scrollable page height. Defaults to false (viewport only).",

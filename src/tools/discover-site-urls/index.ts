@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { siteDomain } from "@/utils/urlInput";
 import { discoverSiteUrls } from "@/utils/site-audit-api";
 import { formatDiscoverResult, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -40,8 +41,8 @@ class DiscoverSiteUrlsTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        domain: z.string().describe(
-            "The domain to crawl (e.g. https://example.com). Include the protocol.",
+        domain: siteDomain().describe(
+            "The domain to crawl: a bare domain (example.com) or an http(s) URL.",
         ),
     });
 

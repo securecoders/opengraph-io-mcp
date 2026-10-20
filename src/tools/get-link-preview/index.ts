@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { previewPage } from "@/utils/site-audit-api";
 import { formatLinkPreview, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -39,7 +40,7 @@ class GetLinkPreviewTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe(
+        url: httpUrl().describe(
             "The full URL to preview (e.g. https://example.com/pricing).",
         ),
     });

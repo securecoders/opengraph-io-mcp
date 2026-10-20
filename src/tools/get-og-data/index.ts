@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { getSiteOgData } from "@/utils/og";
 import { formatOgData, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -110,7 +111,7 @@ class GetOgDataTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to analyze."),
+        url: httpUrl().describe("URL of the webpage to analyze."),
         use_ai: z.boolean().optional().describe(
             "Enhance the metadata response with AI-generated fields. Requires an AI-enabled plan.",
         ),

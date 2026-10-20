@@ -1,6 +1,7 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { getSiteMarkdown } from "@/utils/og";
 import { formatMarkdown, formatError, toResult } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -47,7 +48,7 @@ class GetOgMarkdownTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to convert to Markdown."),
+        url: httpUrl().describe("URL of the webpage to convert to Markdown."),
         // Content targeting
         include_tags: z.array(z.string()).optional().describe(
             "CSS selectors — keep only elements matching these selectors. " +
