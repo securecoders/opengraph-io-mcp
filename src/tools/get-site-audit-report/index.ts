@@ -2,7 +2,7 @@ import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getAuditReport } from "@/utils/site-audit-api";
-import { formatAuditReport, formatError, toResult } from "@/utils/format";
+import { formatAuditReport, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetSiteAuditReportTool extends BaseTool {
@@ -47,6 +47,7 @@ class GetSiteAuditReportTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         auditId:     z.string(),
         domain:      z.string(),
         score:       z.number().nullable().optional().describe("Overall site score 0–100"),
@@ -77,7 +78,7 @@ class GetSiteAuditReportTool extends BaseTool {
         }
         try {
             const { report } = await getAuditReport(args.auditId, this.accessToken);
-            return toResult(formatAuditReport(report));
+            return toUntrustedResult(formatAuditReport(report), report?.domain ?? "");
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Get Open Graph Audit Report", reason));

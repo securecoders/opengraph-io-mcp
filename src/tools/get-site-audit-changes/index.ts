@@ -2,7 +2,7 @@ import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { getAuditDiff, getAuditPriorities } from "@/utils/site-audit-api";
-import { formatAuditChanges, formatError, toResult } from "@/utils/format";
+import { formatAuditChanges, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetSiteAuditChangesTool extends BaseTool {
@@ -42,6 +42,7 @@ class GetSiteAuditChangesTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         auditId:    z.string(),
         diff:       z.any().nullable(),
         priorities: z.any().nullable(),
@@ -74,7 +75,7 @@ class GetSiteAuditChangesTool extends BaseTool {
                 ? "Change report unavailable — priorities only."
                 : (!priorities ? "Prioritization unavailable — change report only." : undefined);
 
-            return toResult(formatAuditChanges(args.auditId, diff, priorities, degraded));
+            return toUntrustedResult(formatAuditChanges(args.auditId, diff, priorities, degraded), "");
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Get Open Graph Audit Changes", reason));

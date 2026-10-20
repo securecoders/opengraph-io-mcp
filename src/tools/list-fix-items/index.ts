@@ -2,7 +2,7 @@ import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { listFixItems } from "@/utils/site-audit-api";
-import { formatFixItems, formatError, toResult } from "@/utils/format";
+import { formatFixItems, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class ListFixItemsTool extends BaseTool {
@@ -22,12 +22,12 @@ class ListFixItemsTool extends BaseTool {
     };
 
     inputSchema = z.object({ auditId: z.string().describe("Audit ID.") });
-    outputSchema = z.object({ auditId: z.string(), fixItems: z.array(z.any()) });
+    outputSchema = z.object({ provenance: provenanceSchema, auditId: z.string(), fixItems: z.array(z.any()) });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) return toResult(formatError("List Fix Items", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
-            return toResult(formatFixItems(args.auditId, await listFixItems(args.auditId, this.accessToken)));
+            return toUntrustedResult(formatFixItems(args.auditId, await listFixItems(args.auditId, this.accessToken)), "");
         } catch (error: unknown) {
             return toResult(formatError("List Fix Items", error instanceof Error ? error.message : String(error)));
         }

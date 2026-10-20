@@ -3,7 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { httpUrl } from "@/utils/urlInput";
 import { previewPage } from "@/utils/site-audit-api";
-import { formatLinkPreview, formatError, toResult } from "@/utils/format";
+import { formatLinkPreview, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetLinkPreviewTool extends BaseTool {
@@ -46,6 +46,7 @@ class GetLinkPreviewTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:        z.string(),
         score:      z.number().describe("Quality score 0–100"),
         scoreLabel: z.string().describe("Score tier: Well Optimized / Good / Room for Improvement / Needs Attention / Poor"),
@@ -96,7 +97,7 @@ class GetLinkPreviewTool extends BaseTool {
         }
         try {
             const result = await previewPage(this.organizationId, args.url, this.accessToken);
-            return toResult(formatLinkPreview(result));
+            return toUntrustedResult(formatLinkPreview(result), args.url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Get Link Preview", reason));

@@ -2,7 +2,7 @@ import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { exportFixItemsCsv } from "@/utils/site-audit-api";
-import { formatFixItemsCsv, formatError, toResult } from "@/utils/format";
+import { formatFixItemsCsv, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class ExportFixItemsCsvTool extends BaseTool {
@@ -22,13 +22,13 @@ class ExportFixItemsCsvTool extends BaseTool {
     };
 
     inputSchema = z.object({ auditId: z.string().describe("Audit ID.") });
-    outputSchema = z.object({ auditId: z.string(), csv: z.string() });
+    outputSchema = z.object({ provenance: provenanceSchema, auditId: z.string(), csv: z.string() });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) return toResult(formatError("Export Fix List as CSV", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             const csv = await exportFixItemsCsv(args.auditId, this.accessToken);
-            return toResult(formatFixItemsCsv(args.auditId, csv ?? ""));
+            return toUntrustedResult(formatFixItemsCsv(args.auditId, csv ?? ""), "");
         } catch (error: unknown) {
             return toResult(formatError("Export Fix List as CSV", error instanceof Error ? error.message : String(error)));
         }

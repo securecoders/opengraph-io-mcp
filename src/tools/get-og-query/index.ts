@@ -3,7 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { httpUrl } from "@/utils/urlInput";
 import { querySite } from "@/utils/og";
-import { formatQuery, formatError, toResult } from "@/utils/format";
+import { formatQuery, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetOgQueryTool extends BaseTool {
@@ -86,6 +86,7 @@ class GetOgQueryTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:      z.string(),
         question: z.string(),
         result:   z.any().describe("AI-generated answer. May be a string or structured object."),
@@ -97,7 +98,7 @@ class GetOgQueryTool extends BaseTool {
             const raw = await querySite(url, query, responseStructure, this.appId, options);
             // og-api returns { answer: ... } or similar — surface the whole payload
             const result = raw?.answer ?? raw?.result ?? raw;
-            return toResult(formatQuery(url, query, result));
+            return toUntrustedResult(formatQuery(url, query, result), url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Query URL Content", reason));

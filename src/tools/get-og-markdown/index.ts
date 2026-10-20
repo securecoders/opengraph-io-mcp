@@ -3,7 +3,7 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { httpUrl } from "@/utils/urlInput";
 import { getSiteMarkdown } from "@/utils/og";
-import { formatMarkdown, formatError, toResult } from "@/utils/format";
+import { formatMarkdown, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetOgMarkdownTool extends BaseTool {
@@ -177,6 +177,7 @@ class GetOgMarkdownTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:             z.string(),
         markdown:        z.string().describe("Full Markdown content of the page"),
         length:          z.number().describe("Character count of the returned Markdown"),
@@ -200,8 +201,9 @@ class GetOgMarkdownTool extends BaseTool {
                 options.chunking = true;
             }
             const result = await getSiteMarkdown(url, this.appId, options);
-            return toResult(
+            return toUntrustedResult(
                 formatMarkdown(url, { ...result, onlyMainContent: args.only_main_content }),
+                url,
             );
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
