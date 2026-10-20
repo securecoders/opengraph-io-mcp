@@ -146,8 +146,11 @@ Options:
   --app-id <id>     Your OpenGraph.io App ID
   --help, -h        Show this help message
 
+Interactive mode asks for the App ID without echoing it. Passing --app-id on the
+command line leaves the key in your shell history.
+
 Examples:
-  # Interactive mode
+  # Interactive mode (recommended)
   npx opengraph-io-mcp-install
 
   # Direct mode
@@ -180,6 +183,21 @@ async function prompt(rl: readline.Interface, question: string): Promise<string>
     });
 }
 
+/** Like prompt, but the key is not echoed to the terminal (or a screen share). */
+async function promptSecret(rl: readline.Interface, question: string): Promise<string> {
+    const out = rl as unknown as { _writeToOutput?: (s: string) => void; output: NodeJS.WritableStream };
+    const original = out._writeToOutput;
+    process.stdout.write(question);
+    out._writeToOutput = (s: string) => {
+        if (s.includes("\n") || s.includes("\r")) out.output.write("\n");
+    };
+    try {
+        return await prompt(rl, "");
+    } finally {
+        out._writeToOutput = original;
+    }
+}
+
 // Select client interactively
 async function selectClient(rl: readline.Interface): Promise<ClientType | null> {
     console.log("\nSelect your MCP client:\n");
@@ -202,14 +220,19 @@ async function selectClient(rl: readline.Interface): Promise<ClientType | null> 
     return null;
 }
 
+// Client configs hold the App ID in plain text (only VS Code has a secret prompt),
+// so they and their backups are readable by the user alone.
+const PRIVATE_FILE = 0o600;
+
 // Create backup of existing config
-function createBackup(configPath: string): string | null {
+export function createBackup(configPath: string): string | null {
     if (!fs.existsSync(configPath)) {
         return null;
     }
 
     const backupPath = `${configPath}.backup.${Date.now()}`;
-    fs.copyFileSync(configPath, backupPath);
+    fs.copyFileSync(configPath, backupPath, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(backupPath, PRIVATE_FILE);
     return backupPath;
 }
 
@@ -221,8 +244,9 @@ function ensureDir(filePath: string): void {
     }
 }
 
-// Read existing config or return empty object
-function readConfig(configPath: string): McpConfig {
+// Read existing config. Null when it exists but cannot be parsed: treating it as
+// empty would overwrite every other setting in it (Zed's settings.json allows comments).
+export function readConfig(configPath: string): McpConfig | null {
     if (!fs.existsSync(configPath)) {
         return {};
     }
@@ -231,8 +255,7 @@ function readConfig(configPath: string): McpConfig {
         const content = fs.readFileSync(configPath, "utf-8");
         return JSON.parse(content);
     } catch {
-        console.error(`Warning: Could not parse existing config at ${configPath}`);
-        return {};
+        return null;
     }
 }
 
@@ -272,7 +295,7 @@ function generateVSCodeConfig(_appId: string): McpConfig {
 }
 
 // Merge config with existing
-function mergeConfig(existing: McpConfig, client: ClientInfo, appId: string): McpConfig {
+export function mergeConfig(existing: McpConfig, client: ClientInfo, appId: string): McpConfig {
     const serverConfig = generateServerConfig(appId);
 
     if (client.needsVSCodeFormat) {
@@ -303,15 +326,17 @@ function mergeConfig(existing: McpConfig, client: ClientInfo, appId: string): Mc
 }
 
 // Write config to file
-function writeConfig(configPath: string, config: McpConfig): void {
+export function writeConfig(configPath: string, config: McpConfig): void {
     ensureDir(configPath);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: PRIVATE_FILE });
+    // mode only applies when the file is created; an existing config keeps its old one.
+    fs.chmodSync(configPath, PRIVATE_FILE);
 }
 
 // Main installation function
-async function install(clientType: ClientType, appId: string): Promise<boolean> {
+export async function install(clientType: ClientType, appId: string, configPathOverride?: string): Promise<boolean> {
     const client = CLIENTS[clientType];
-    const configPath = client.getConfigPath();
+    const configPath = configPathOverride ?? client.getConfigPath();
 
     if (!configPath) {
         console.error(`Error: ${client.name} is not available on this operating system.`);
@@ -321,14 +346,19 @@ async function install(clientType: ClientType, appId: string): Promise<boolean> 
     console.log(`\nInstalling OpenGraph MCP for ${client.name}...`);
     console.log(`Config path: ${configPath}`);
 
+    // Read existing config
+    const existingConfig = readConfig(configPath);
+    if (existingConfig === null) {
+        console.error(`Error: ${configPath} is not plain JSON, so it was left untouched.`);
+        console.error(`Add the OpenGraph server to it by hand (see the README).`);
+        return false;
+    }
+
     // Create backup if file exists
     const backupPath = createBackup(configPath);
     if (backupPath) {
         console.log(`Backup created: ${backupPath}`);
     }
-
-    // Read existing config
-    const existingConfig = readConfig(configPath);
 
     // Merge with new config
     const newConfig = mergeConfig(existingConfig, client, appId);
@@ -378,7 +408,7 @@ async function main(): Promise<void> {
 
             if (!appId) {
                 console.log("");
-                appId = await prompt(rl, "Enter your OpenGraph.io App ID: ");
+                appId = await promptSecret(rl, "Enter your OpenGraph.io App ID (hidden): ");
                 if (!appId) {
                     console.error("App ID is required. Exiting.");
                     process.exit(1);
@@ -401,7 +431,9 @@ async function main(): Promise<void> {
     process.exit(success ? 0 : 1);
 }
 
-main().catch((error) => {
-    console.error("Unexpected error:", error);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch((error) => {
+        console.error("Unexpected error:", error);
+        process.exit(1);
+    });
+}
