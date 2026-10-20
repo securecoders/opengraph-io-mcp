@@ -24,7 +24,7 @@ This file supplements the parent workspace [`CLAUDE.md`](../CLAUDE.md). Read tha
 ## Auth
 
 - OAuth 2.1 JWT (RS256 via `jose`, JWKS fetched from `apifur-api`) for site-audit/link-preview tools — `src/utils/oauth.ts`, `src/server-http.ts`. Env: `OAUTH_JWKS_URL`, `OAUTH_ISSUER`, `OAUTH_AUDIENCE`, `MCP_RESOURCE_URL`.
-- Legacy `x-app-id` header or `OPENGRAPH_APP_ID`/`APP_ID` env for data tools (`src/utils/og.ts`).
+- Legacy `x-app-id` header (HTTP, only with `MCP_ALLOW_LEGACY_APP_ID=true`) or `OPENGRAPH_APP_ID`/`APP_ID` env (stdio) for data tools (`src/utils/og.ts`, `src/http/handlers.ts`).
 - Site audit / link preview tools additionally require OAuth bearer + org ID (`src/utils/sessionIdToAppId.ts`).
 
 ## Integrations
@@ -36,7 +36,7 @@ This file supplements the parent workspace [`CLAUDE.md`](../CLAUDE.md). Read tha
 ## Tool Registration
 
 - Tools are registered in one place: `src/tools/registry.ts`. An entry supplies a `create(ctx)` factory and optionally `requiresAppId`. `ListTools` (`toolDefinitions`) and `CallTool` (`resolveTool`) both read that table, so the advertised list cannot drift from what dispatch accepts.
-- `requiresAppId` is **not** uniform: the six OG data tools refuse to run without an app id on a non-local session; image and site-audit tools deliberately do not, returning a friendly result from `execute()` instead. `tests/toolDispatch.test.ts` pins that asymmetry.
+- `requiresAppId` is **not** uniform: the six OG data tools and four image tools refuse to run without an app id on a non-local session (otherwise the client falls back to the server's `OPENGRAPH_APP_ID`); site-audit tools deliberately do not, returning a friendly result from `execute()` instead. `tests/toolDispatch.test.ts` pins that asymmetry. "Local" is the explicit `createServer({ local: true })` set only by `server-stdio.ts`.
 - `SERVER_INSTRUCTIONS` in `src/mcp.ts` is hand-written cross-tool guidance, deliberately not generated — `tests/serverInstructions.test.ts` guards it against drifting out of sync with the registry.
 
 ## Cross-Service Notes

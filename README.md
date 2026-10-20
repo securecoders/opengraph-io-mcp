@@ -56,7 +56,9 @@ The client then fetches the authorization server metadata and starts the PKCE fl
 
 **No client-side config needed** — the client discovers everything automatically.
 
-### Option 2 — `x-app-id` header (legacy / local dev)
+### Option 2 — `x-app-id` header (deprecated on the hosted server)
+
+> **Deprecated.** The hosted server at `mcp.opengraph.io` still accepts the `x-app-id` header, but support is being removed. Responses to these requests carry a `Deprecation` header. Switch to OAuth (Option 1); it also unlocks the Open Graph Audit and Link Preview tools. The stdio transport and the Claude Desktop extension use your App ID directly and are not affected.
 
 Pass your App ID as an HTTP header. Suitable for local dev, CI, or clients that do not support OAuth.
 
@@ -83,6 +85,8 @@ For clients that support OAuth discovery, simply point at the hosted URL with no
 ```
 
 ### x-app-id fallback
+
+> **Deprecated on the hosted server.** See [Option 2](#option-2--x-app-id-header-deprecated-on-the-hosted-server). Prefer OAuth.
 
 If your client does not support OAuth, or you prefer static config:
 
@@ -441,7 +445,8 @@ When running the Streamable HTTP server (`npm start`), set these env vars:
 # Required: URL of the apifur-api JWKS endpoint
 OAUTH_JWKS_URL=https://dashboard-api.opengraph.io/oauth/jwks.json
 
-# Optional: Issuer string to validate in bearer tokens (defaults to OAUTH_ISSUER)
+# Required: the exact issuer apifur-api signs with (its /.well-known/oauth-authorization-server
+# "issuer"). Matched character for character; without it every bearer token is refused.
 OAUTH_ISSUER=https://dashboard-api.opengraph.io
 
 # Optional: Expected audience claim (default: https://mcp.opengraph.io/mcp)
@@ -451,7 +456,23 @@ OAUTH_AUDIENCE=https://mcp.opengraph.io/mcp
 MCP_RESOURCE_URL=https://mcp.opengraph.io/mcp
 ```
 
-When `OAUTH_JWKS_URL` is not set, bearer-token verification is disabled and only the `x-app-id` fallback is active.
+When `OAUTH_JWKS_URL` or `OAUTH_ISSUER` is not set, bearer tokens are refused.
+
+### Network
+
+```env
+# Interface to listen on (default 127.0.0.1). The Docker image sets 0.0.0.0.
+MCP_HOST=127.0.0.1
+
+# Host header values /mcp accepts. Unset: only localhost names while bound to loopback,
+# which blocks DNS rebinding; no check when bound to all interfaces.
+MCP_ALLOWED_HOSTS=mcp.example.com
+
+# Browser origins allowed to call the server from another site. Unset: none. Desktop and CLI
+# clients send no Origin and are unaffected; a client running in a browser page (such as
+# MCP Inspector's direct mode) needs its origin listed here.
+MCP_ALLOWED_ORIGINS=https://app.example.com
+```
 
 ### Behind a proxy
 
@@ -473,7 +494,13 @@ OPENGRAPH_APP_ID=your_app_id_here
 APP_ID=your_app_id_here
 ```
 
-This also works as the fallback for any HTTP request that includes an `x-app-id` header.
+Over HTTP, an `x-app-id` header is accepted only when the server opts in:
+
+```env
+MCP_ALLOW_LEGACY_APP_ID=true
+```
+
+It is off by default because the header is an unverified claim of identity. The stdio transport and the Claude Desktop extension do not use it and are unaffected.
 
 ### Stdio transport
 
