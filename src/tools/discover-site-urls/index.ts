@@ -1,8 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { siteDomain } from "@/utils/urlInput";
 import { discoverSiteUrls } from "@/utils/site-audit-api";
-import { formatDiscoverResult, formatError, toResult } from "@/utils/format";
+import { formatDiscoverResult, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class DiscoverSiteUrlsTool extends BaseTool {
@@ -40,12 +41,13 @@ class DiscoverSiteUrlsTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        domain: z.string().describe(
-            "The domain to crawl (e.g. https://example.com). Include the protocol.",
+        domain: siteDomain().describe(
+            "The domain to crawl: a bare domain (example.com) or an http(s) URL.",
         ),
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         domain:          z.string(),
         totalFound:      z.number().describe("Total URLs found across crawl and sitemap"),
         urls: z.array(z.object({
@@ -68,7 +70,7 @@ class DiscoverSiteUrlsTool extends BaseTool {
         }
         try {
             const result = await discoverSiteUrls(this.organizationId, args.domain, this.accessToken);
-            return toResult(formatDiscoverResult(result));
+            return toUntrustedResult(formatDiscoverResult(result), args.domain);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Discover Site URLs", reason));

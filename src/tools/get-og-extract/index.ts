@@ -1,8 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { extractHtmlElements } from "@/utils/og";
-import { formatExtract, formatError, toResult } from "@/utils/format";
+import { formatExtract, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetOgExtractTool extends BaseTool {
@@ -46,7 +47,7 @@ class GetOgExtractTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to extract content from."),
+        url: httpUrl().describe("URL of the webpage to extract content from."),
         html_elements: z.array(z.string()).optional().describe(
             "List of HTML tag names to extract (e.g. ['h1', 'h2', 'a', 'img', 'p']). " +
             "Defaults to ['title','h1','h2','h3','h4','h5','p'] when neither html_elements nor selectors is provided.",
@@ -127,6 +128,7 @@ class GetOgExtractTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:              z.string(),
         concatenatedText: z.string().optional().describe(
             "All matched element text joined into one string. Present in both html_elements and selectors modes.",
@@ -145,7 +147,7 @@ class GetOgExtractTool extends BaseTool {
                 data:             raw?.data,
                 ai_safety:        raw?.ai_safety,
             };
-            return toResult(formatExtract(url, payload));
+            return toUntrustedResult(formatExtract(url, payload), url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Extract HTML Elements", reason));

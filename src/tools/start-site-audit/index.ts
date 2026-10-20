@@ -3,6 +3,14 @@ import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
 import { createAudit } from "@/utils/site-audit-api";
 import { formatAuditStarted, formatError, toResult } from "@/utils/format";
+import {
+    MAX_AUDIT_PAGES,
+    MAX_AUDIT_URL_LIST,
+    MAX_SITE_CONTEXT_CHARS,
+    httpUrl,
+    isUnderDomain,
+    siteDomain,
+} from "@/utils/urlInput";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class StartSiteAuditTool extends BaseTool {
@@ -46,18 +54,18 @@ class StartSiteAuditTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        domain: z.string().describe(
-            "The domain to audit. Include the protocol (e.g. https://example.com).",
+        domain: siteDomain().describe(
+            "The domain to audit: a bare domain (example.com) or an http(s) URL.",
         ),
-        pagesRequested: z.number().int().min(1).max(500).optional().describe(
+        pagesRequested: z.number().int().min(1).max(MAX_AUDIT_PAGES).optional().describe(
             "Number of pages to audit (1–500). Defaults to the length of the `urls` array if provided, " +
             "otherwise 10. Your plan's monthly URL quota limits the maximum across all audits.",
         ),
-        urls: z.array(z.string()).optional().describe(
-            "Specific URLs to audit. Pass the user-selected subset from **discoverSiteUrls**. " +
-            "When omitted, the audit crawls the domain internally.",
+        urls: z.array(httpUrl()).max(MAX_AUDIT_URL_LIST).optional().describe(
+            "Specific http(s) URLs to audit, all on the audited domain. Pass the user-selected subset " +
+            "from **discoverSiteUrls**. When omitted, the audit crawls the domain internally.",
         ),
-        siteContextText: z.string().optional().describe(
+        siteContextText: z.string().max(MAX_SITE_CONTEXT_CHARS).optional().describe(
             "Homepage text from **discoverSiteUrls** structured output (`siteContextText`). " +
             "Including this enriches the AI-generated overview and top-priority analysis.",
         ),
@@ -79,8 +87,18 @@ class StartSiteAuditTool extends BaseTool {
         }
         try {
             const { urls, siteContextText, domain, pagesRequested } = args;
-            // When a URL list is provided, default pagesRequested to its length
-            const pages = pagesRequested ?? (urls && urls.length > 0 ? urls.length : 10);
+            const offDomain = (urls ?? []).filter((u) => !isUnderDomain(u, domain));
+            if (offDomain.length > 0) {
+                const shown = offDomain.slice(0, 5).join(", ");
+                const more = offDomain.length > 5 ? ` and ${offDomain.length - 5} more` : "";
+                return toResult(formatError(
+                    "Start Open Graph Audit",
+                    `Every URL must be on ${domain}. Not on it: ${shown}${more}.`,
+                ));
+            }
+            // A URL list sets the default page count, but never past the audit ceiling.
+            const pages = pagesRequested
+                ?? (urls && urls.length > 0 ? Math.min(urls.length, MAX_AUDIT_PAGES) : 10);
             const result = await createAudit(
                 this.organizationId,
                 domain,

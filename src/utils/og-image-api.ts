@@ -1,4 +1,24 @@
 import { getBaseUrl } from "@/utils/og";
+import { serviceUrl } from "@/utils/serviceUrl";
+import {
+    IMAGE_AGENT_TIMEOUT_MS,
+    fetchWithTimeout,
+    pathSegment,
+    readBytes,
+    readErrorBody,
+    readJson,
+    upstreamDetail,
+} from "@/utils/http";
+
+const SERVICE = "The image generation API";
+
+const imageFetch = (url: string, init: RequestInit): Promise<Response> =>
+    fetchWithTimeout(SERVICE, url, init, IMAGE_AGENT_TIMEOUT_MS);
+
+async function throwFailed(action: string, response: Response): Promise<never> {
+    const detail = upstreamDetail(await readErrorBody(SERVICE, response), response.status);
+    throw new Error(`Failed to ${action}: ${detail || response.statusText || `status ${response.status}`}`);
+}
 
 /**
  * Get the base URL for the og-image-agent API
@@ -8,10 +28,7 @@ import { getBaseUrl } from "@/utils/og";
  * 2. OG_BASE_URL + /image-agent — production default (e.g. https://opengraph.io/image-agent)
  */
 const getImageAgentBaseUrl = (): string => {
-    if (process.env.OG_IMAGE_AGENT_URL) {
-        return process.env.OG_IMAGE_AGENT_URL.replace(/\/+$/, '');
-    }
-    return `${getBaseUrl()}/image-agent`;
+    return serviceUrl('OG_IMAGE_AGENT_URL', `${getBaseUrl()}/image-agent`);
 };
 
 /**
@@ -31,14 +48,13 @@ const getHeaders = (): Record<string, string> => {
     };
 };
 
-/**
- * Append app_id as query parameter to URL
- */
-const withAppId = (url: string, app_id?: string): string => {
+/** URLSearchParams encodes the value, so an app id cannot add or replace other parameters. */
+export const withAppId = (url: string, app_id?: string): string => {
     const appId = getAppId(app_id);
     if (!appId) return url;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}app_id=${appId}`;
+    const parsed = new URL(url);
+    parsed.searchParams.set('app_id', appId);
+    return parsed.toString();
 };
 
 // ============================================
@@ -165,30 +181,21 @@ export interface IterateParams {
 // API functions
 // ============================================
 
-// Type for API error responses
-interface ApiErrorResponse {
-    error?: string;
-}
-
 /**
  * Create a new session
  */
 export const createSession = async (name?: string, app_id?: string): Promise<SessionResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ name }),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        console.error("Image agent API: Failed to create session ", error);
-        throw new Error(`Failed to create session: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("create session", response);
     
-    return await response.json() as SessionResponse;
+    return readJson<SessionResponse>(SERVICE, response);
 };
 
 /**
@@ -197,18 +204,15 @@ export const createSession = async (name?: string, app_id?: string): Promise<Ses
 export const generateImage = async (sessionId: string, params: GenerateParams, app_id?: string): Promise<GenerateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/generate`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}/generate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to generate image: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("generate image", response);
     
-    return await response.json() as GenerateResponse;
+    return readJson<GenerateResponse>(SERVICE, response);
 };
 
 /**
@@ -217,18 +221,15 @@ export const generateImage = async (sessionId: string, params: GenerateParams, a
 export const iterateImage = async (sessionId: string, params: IterateParams, app_id?: string): Promise<IterateResponse> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}/iterate`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}/iterate`, app_id), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(params),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to iterate image: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("iterate image", response);
     
-    return await response.json() as IterateResponse;
+    return readJson<IterateResponse>(SERVICE, response);
 };
 
 /**
@@ -237,40 +238,86 @@ export const iterateImage = async (sessionId: string, params: IterateParams, app
 export const getSession = async (sessionId: string, app_id?: string): Promise<SessionDetails> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/sessions/${sessionId}`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/sessions/${pathSegment(sessionId)}`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to get session: ${error.error || response.statusText}`);
-    }
+    if (!response.ok) await throwFailed("get session", response);
     
-    return await response.json() as SessionDetails;
+    return readJson<SessionDetails>(SERVICE, response);
 };
 
 /**
  * Get asset file as a Buffer
  */
-export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string }> => {
+export const getAssetFile = async (assetId: string, app_id?: string): Promise<{ data: Buffer; contentType: string; format: ImageKind["format"] }> => {
     const baseUrl = getImageAgentBaseUrl();
     
-    const response = await fetch(withAppId(`${baseUrl}/assets/${assetId}/file`, app_id), {
+    const response = await imageFetch(withAppId(`${baseUrl}/assets/${pathSegment(assetId)}/file`, app_id), {
         method: "GET",
         headers: getHeaders(),
     });
     
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText })) as ApiErrorResponse;
-        throw new Error(`Failed to get asset file: ${error.error || response.statusText}`);
+    if (!response.ok) await throwFailed("get asset file", response);
+    
+    const data = await readBytes(SERVICE, response);
+    const kind = sniffImage(data);
+    if (!kind) throw new Error("Failed to get asset file: not a recognised image.");
+    return { data, contentType: kind.mime, format: kind.format };
+};
+
+export interface ImageKind {
+    mime:   "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
+    format: "PNG" | "JPEG" | "WEBP" | "SVG";
+}
+
+/**
+ * The type comes from the bytes, never the upstream Content-Type: a mislabelled
+ * SVG would otherwise reach a client as a raster image it renders.
+ */
+export function sniffImage(data: Buffer): ImageKind | null {
+    if (data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+        return { mime: "image/png", format: "PNG" };
     }
-    
-    const contentType = response.headers.get("Content-Type") || "image/png";
-    const arrayBuffer = await response.arrayBuffer();
-    const data = Buffer.from(arrayBuffer);
-    
-    return { data, contentType };
+    if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+        return { mime: "image/jpeg", format: "JPEG" };
+    }
+    if (data.length >= 12 && data.toString("latin1", 0, 4) === "RIFF" && data.toString("latin1", 8, 12) === "WEBP") {
+        return { mime: "image/webp", format: "WEBP" };
+    }
+    const head = data.subarray(0, 1024).toString("utf8").replace(/^\uFEFF/, "").trimStart();
+    if ((head.startsWith("<?xml") || head.startsWith("<svg") || head.startsWith("<!--")) && head.includes("<svg")) {
+        return { mime: "image/svg+xml", format: "SVG" };
+    }
+    return null;
+}
+
+export const SVG_NOT_INLINE =
+    "SVG is not returned inline because it can carry script. Use exportImageAsset with a destinationPath (local only), or the asset url.";
+
+/** Every path that hands image bytes to a client goes through here; SVG never does. */
+export function inlineImage(file: { data: Buffer; contentType: string; format: ImageKind["format"] }):
+    { type: "image"; data: string; mimeType: string } | null {
+    if (file.format === "SVG") return null;
+    return { type: "image", data: file.data.toString("base64"), mimeType: file.contentType };
+}
+
+/**
+ * Loads an asset only if the image session lists it, under the caller's key.
+ * A bare 200 from the asset endpoint says the asset exists, not that it belongs
+ * to the session the caller named; ownership itself is the image agent's to enforce.
+ */
+export const getSessionAsset = async (
+    sessionId: string,
+    assetId: string,
+    app_id?: string,
+): Promise<{ data: Buffer; contentType: string; format: ImageKind["format"] }> => {
+    const session = await getSession(sessionId, app_id);
+    if (!(session.assets ?? []).some((a) => a.assetId === assetId)) {
+        throw new Error(`Asset ${assetId} is not in session ${sessionId}.`);
+    }
+    return getAssetFile(assetId, app_id);
 };
 
 /**

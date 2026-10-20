@@ -10,6 +10,8 @@ RUN npm run build
 FROM node:24-alpine
 
 ENV NODE_ENV=production
+# The server binds loopback by default; a container must listen on all interfaces.
+ENV MCP_HOST=0.0.0.0
 
 RUN addgroup -g 1001 -S appgroup && \
     adduser -S appuser -u 1001 -G appgroup

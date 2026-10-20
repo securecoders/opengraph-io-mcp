@@ -1,8 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { previewPage } from "@/utils/site-audit-api";
-import { formatPagePreview, formatError, toResult } from "@/utils/format";
+import { formatPagePreview, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class PreviewPageAuditTool extends BaseTool {
@@ -39,12 +40,13 @@ class PreviewPageAuditTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe(
+        url: httpUrl().describe(
             "The full URL of the page to audit (e.g. https://example.com/product).",
         ),
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:        z.string(),
         score:      z.number().describe("Quality score 0–100"),
         scoreLabel: z.string().describe("Human-readable score tier"),
@@ -68,7 +70,7 @@ class PreviewPageAuditTool extends BaseTool {
         }
         try {
             const result = await previewPage(this.organizationId, args.url, this.accessToken);
-            return toResult(formatPagePreview(result));
+            return toUntrustedResult(formatPagePreview(result), args.url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Preview Page Audit", reason));

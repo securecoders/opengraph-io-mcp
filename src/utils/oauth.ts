@@ -11,6 +11,7 @@
  */
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { serviceUrl } from '@/utils/serviceUrl';
 
 export interface OAuthClaims {
   /** Token subject (sub) — the user the session belongs to */
@@ -21,14 +22,17 @@ export interface OAuthClaims {
   organizationId: string;
   /** Space-separated scope string */
   scope:          string;
+  /** Epoch ms after which the token must no longer be held */
+  expiresAt?:     number;
 }
 
 // ---------------------------------------------------------------------------
 // Config helpers
 // ---------------------------------------------------------------------------
 
+// An http JWKS URL would let anyone on the path swap the signing keys and mint tokens.
 function getJwksUrl(): string {
-  const url = process.env.OAUTH_JWKS_URL;
+  const url = serviceUrl('OAUTH_JWKS_URL', '');
   if (!url) {
     throw new Error(
       'OAUTH_JWKS_URL is not set. ' +
@@ -38,8 +42,17 @@ function getJwksUrl(): string {
   return url;
 }
 
-function getIssuer(): string | undefined {
-  return process.env.OAUTH_ISSUER || undefined;
+// Required, but only checked when a token is verified: stdio never touches OAuth,
+// so a missing value must not stop it starting. Unset used to skip the iss check.
+function getIssuer(): string {
+  const issuer = process.env.OAUTH_ISSUER;
+  if (!issuer) {
+    throw new Error(
+      'OAUTH_ISSUER is not set. Set it to the exact issuer apifur-api signs with ' +
+      '(its /.well-known/oauth-authorization-server "issuer").',
+    );
+  }
+  return issuer;
 }
 
 function getAudience(): string {
@@ -80,13 +93,15 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
   const { payload } = await jwtVerify(jwt, getJwks(), {
     algorithms:    ['RS256'],
     audience,
-    ...(issuer ? { issuer } : {}),
+    issuer,
+    // jose only checks exp when present; a token without one would never expire.
+    requiredClaims: ['exp'],
   });
 
   const subject        = typeof payload.sub       === 'string' ? payload.sub       : '';
   const appId          = typeof payload.og_app_id === 'string' ? payload.og_app_id : '';
   const organizationId = typeof payload.og_org_id === 'string' ? payload.og_org_id : '';
-  const scope          = typeof payload.scope     === 'string' ? payload.scope     : 'mcp';
+  const scope          = typeof payload.scope     === 'string' ? payload.scope     : '';
 
   if (!subject) {
     throw new Error('Access token missing sub claim');
@@ -97,6 +112,12 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
   if (!organizationId) {
     throw new Error('Access token missing og_org_id claim');
   }
+  // apifur-api refuses a token without the mcp scope; a missing scope must not
+  // be read here as full access.
+  if (!scope.split(/\s+/).includes('mcp')) {
+    throw new Error('Access token lacks the mcp scope');
+  }
 
-  return { subject, appId, organizationId, scope };
+  const expiresAt = typeof payload.exp === 'number' ? payload.exp * 1000 : undefined;
+  return { subject, appId, organizationId, scope, expiresAt };
 }

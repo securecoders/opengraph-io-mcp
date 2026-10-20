@@ -1,37 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
-import { getAssetFile, getSession } from "@/utils/og-image-api";
+import { getSessionAsset, inlineImage, SVG_NOT_INLINE } from "@/utils/og-image-api";
+import { exportBaseDir, resolveExportPath, writeExport } from "@/utils/exportPath";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import * as fs from "fs/promises";
-import * as path from "path";
-
-function validateDestinationPath(destinationPath: string): { valid: boolean; error?: string; normalizedPath?: string } {
-    if (!path.isAbsolute(destinationPath)) {
-        return { valid: false, error: "Destination path must be an absolute path" };
-    }
-
-    const normalizedPath = path.normalize(destinationPath);
-
-    if (normalizedPath.includes('\0')) {
-        return { valid: false, error: "Invalid characters in path" };
-    }
-
-    const blockedPrefixes = [
-        '/etc/', '/usr/', '/bin/', '/sbin/', '/var/',
-        '/System/', '/Library/',
-        'C:\\Windows\\', 'C:\\Program Files\\', 'C:\\Program Files (x86)\\',
-    ];
-
-    const lowerPath = normalizedPath.toLowerCase();
-    for (const blocked of blockedPrefixes) {
-        if (lowerPath.startsWith(blocked.toLowerCase())) {
-            return { valid: false, error: `Cannot write to system directory: ${blocked}` };
-        }
-    }
-
-    return { valid: true, normalizedPath };
-}
 
 class ExportImageAssetTool extends BaseTool {
     private appId: string;
@@ -56,19 +28,22 @@ class ExportImageAssetTool extends BaseTool {
 Returns the image inline as base64 along with metadata (format, dimensions, size).
 
 When running locally (stdio transport), you can optionally provide a destinationPath to save the image to disk.
+Files are only ever written inside one export folder (~/Downloads/opengraph-mcp, or MCP_EXPORT_DIR);
+pass a file name or a path inside it. SVG is returned as a file only, never inline, because it can carry script.
 
 USAGE:
 After generating an image with generateImage, use the sessionId and assetId to export:
   exportImageAsset(sessionId="...", assetId="...")
 
 To save to disk (local/stdio only):
-  exportImageAsset(sessionId="...", assetId="...", destinationPath="/Users/me/project/images/logo.png")`;
+  exportImageAsset(sessionId="...", assetId="...", destinationPath="logo.png")`;
 
     inputSchema = z.object({
         sessionId: z.string().uuid().describe("The session UUID containing the asset"),
         assetId: z.string().uuid().describe("The asset UUID to export"),
-        destinationPath: z.string().optional().describe(
-            "Optional absolute path to save the image to disk. Only works when the server is running locally (stdio transport)."
+        destinationPath: z.string().max(1024).optional().describe(
+            "Optional file name or path inside the export folder (~/Downloads/opengraph-mcp, or MCP_EXPORT_DIR). " +
+            "Only works when the server is running locally (stdio transport)."
         ),
     });
 
@@ -82,80 +57,54 @@ To save to disk (local/stdio only):
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         try {
+            let asset: Awaited<ReturnType<typeof getSessionAsset>>;
             try {
-                await getSession(args.sessionId, this.appId);
-            } catch {
+                asset = await getSessionAsset(args.sessionId, args.assetId, this.appId);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
                 return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                success: false,
-                                error: `Session ${args.sessionId} not found`,
-                            }),
-                        },
-                    ],
+                    content: [{ type: "text", text: JSON.stringify({ success: false, error: message }) }],
                 };
             }
-
-            const { data, contentType } = await getAssetFile(args.assetId, this.appId);
-            const base64Image = data.toString("base64");
-
-            const formatMatch = contentType.match(/image\/(\w+)/);
-            const format = formatMatch ? formatMatch[1].toUpperCase() : "UNKNOWN";
+            const { data, format } = asset;
+            const isSvg = format === "SVG";
 
             let savedPath: string | undefined;
-
+            let saveError: string | undefined;
             if (args.destinationPath && this.isLocal) {
-                const pathValidation = validateDestinationPath(args.destinationPath);
-                if (!pathValidation.valid) {
-                    return {
-                        content: [
-                            {
-                                type: "image",
-                                data: base64Image,
-                                mimeType: contentType,
-                            },
-                            {
-                                type: "text",
-                                text: JSON.stringify({
-                                    success: false,
-                                    error: `Security Error: ${pathValidation.error}`,
-                                    size: data.length,
-                                    format,
-                                }),
-                            },
-                        ],
-                    };
+                const resolved = await resolveExportPath(args.destinationPath, format);
+                if (resolved.ok) {
+                    try {
+                        await writeExport(resolved.path, data);
+                        savedPath = resolved.path;
+                    } catch (error: unknown) {
+                        saveError = error instanceof Error ? error.message : String(error);
+                    }
+                } else {
+                    saveError = resolved.error;
                 }
-
-                const destPath = pathValidation.normalizedPath!;
-                const parentDir = path.dirname(destPath);
-                await fs.mkdir(parentDir, { recursive: true });
-                await fs.writeFile(destPath, data);
-                savedPath = destPath;
             }
 
-            return {
-                content: [
-                    {
-                        type: "image",
-                        data: base64Image,
-                        mimeType: contentType,
-                    },
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            success: true,
-                            assetId: args.assetId,
-                            sessionId: args.sessionId,
-                            size: data.length,
-                            format,
-                            ...(savedPath ? { path: savedPath, message: `Saved to ${savedPath}` } : {}),
-                        }),
-                    },
-                ],
-            };
+            const content: CallToolResult["content"] = [];
+            const inline = inlineImage(asset);
+            if (inline) content.push(inline);
+            content.push({
+                type: "text",
+                text: JSON.stringify({
+                    success: !saveError,
+                    assetId: args.assetId,
+                    sessionId: args.sessionId,
+                    size: data.length,
+                    format,
+                    ...(savedPath ? { path: savedPath, message: `Saved to ${savedPath}` } : {}),
+                    ...(saveError ? { error: saveError } : {}),
+                    // The folder path names the server's home directory, so only local callers see it.
+                    ...(isSvg && !savedPath
+                        ? { note: this.isLocal ? `${SVG_NOT_INLINE} Export folder: ${exportBaseDir()}.` : SVG_NOT_INLINE }
+                        : {}),
+                }),
+            });
+            return { content };
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             return {

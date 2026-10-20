@@ -10,8 +10,8 @@ const SID = "dispatch-session";
 // Characterization tests: these pin the dispatch behaviour that exists today so
 // the switch-to-registry refactor can be proven not to change it. The credential
 // guard is deliberately NOT uniform across tool families — see below.
-async function connect(sessionId?: string) {
-  const { server, cleanup } = createServer();
+async function connect(sessionId?: string, local = false) {
+  const { server, cleanup } = createServer({ local });
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   if (sessionId) (serverT as any).sessionId = sessionId;
   const client = new Client({ name: "test", version: "1.0.0" }, { capabilities: {} });
@@ -19,8 +19,8 @@ async function connect(sessionId?: string) {
   return { client, cleanup };
 }
 
-async function callFor(name: string, args: Record<string, unknown>, sessionId?: string) {
-  const { client, cleanup } = await connect(sessionId);
+async function callFor(name: string, args: Record<string, unknown>, sessionId?: string, local = false) {
+  const { client, cleanup } = await connect(sessionId, local);
   try {
     const res: any = await client.callTool({ name, arguments: args });
     return { ok: true as const, res };
@@ -80,9 +80,25 @@ describe("credential guard by tool family", () => {
     });
   });
 
-  // Image and site-audit tools deliberately do NOT carry that guard: image tools
-  // bill differently and site-audit tools report a friendly "reconnect" result
-  // from inside execute() instead of throwing.
+  // Image tools carry it too: without a session key the image client fell back
+  // to the server's own OPENGRAPH_APP_ID, billing the operator for the call.
+  const IMAGE_TOOLS: Array<[string, Record<string, unknown>]> = [
+    [ToolNames.GENERATE_IMAGE, { prompt: "a cat" }],
+    [ToolNames.ITERATE_IMAGE, { sessionId: "11111111-1111-4111-8111-111111111111", assetId: "22222222-2222-4222-8222-222222222222", prompt: "bigger" }],
+    [ToolNames.INSPECT_IMAGE_SESSION, { sessionId: "11111111-1111-4111-8111-111111111111" }],
+    [ToolNames.EXPORT_IMAGE_ASSET, { sessionId: "11111111-1111-4111-8111-111111111111", assetId: "22222222-2222-4222-8222-222222222222" }],
+  ];
+
+  IMAGE_TOOLS.forEach(([name, args]) => {
+    it(`${name} refuses a session with no app id`, async () => {
+      setAuthContext(SID, { appId: "" });
+      const out = await callFor(name, args, SID);
+      expect(out.ok ? JSON.stringify(out.res) : out.message).toMatch(APP_ID_ERROR);
+    });
+  });
+
+  // Site-audit tools deliberately do NOT carry that guard: they report a friendly
+  // "reconnect" result from inside execute() instead of throwing.
   const UNGUARDED: Array<[string, Record<string, unknown>]> = [
     [ToolNames.DISCOVER_SITE_URLS, { url: "https://example.test" }],
     [ToolNames.START_SITE_AUDIT, { domain: "example.test" }],
@@ -107,10 +123,17 @@ describe("credential guard by tool family", () => {
     expect(JSON.stringify((out as any).res)).toMatch(/reconnect/i);
   });
 
-  it("allows a data tool through on a local stdio session with no session id", async () => {
+  it("allows a data tool through on a local stdio server", async () => {
     // isLocal short-circuits the guard so stdio dev usage keeps working.
-    const out = await callFor(ToolNames.GET_OG_DATA, { url: "https://example.test" });
+    const out = await callFor(ToolNames.GET_OG_DATA, { url: "https://example.test" }, undefined, true);
     expect(out.ok ? JSON.stringify(out.res) : out.message).not.toMatch(APP_ID_ERROR);
+  });
+
+  // #43: local used to be inferred from a missing session id, so any HTTP request
+  // that lacked one got stdio's privileges. It is now set only by the stdio entrypoint.
+  it("does not treat an HTTP server with no session id as local", async () => {
+    const out = await callFor(ToolNames.GET_OG_DATA, { url: "https://example.test" });
+    expect(out.ok ? JSON.stringify(out.res) : out.message).toMatch(APP_ID_ERROR);
   });
 });
 
@@ -135,5 +158,27 @@ describe("unknown tools", () => {
   it("rejects a name that is not registered", async () => {
     const out = await callFor("notATool", {}, SID);
     expect(out.ok ? JSON.stringify(out.res) : out.message).toMatch(/notATool/);
+  });
+});
+
+describe("tool call log", () => {
+  it("records the tool and outcome, never the arguments", async () => {
+    const spy = (await import("vitest")).vi.spyOn(console, "error").mockImplementation(() => {});
+    setAuthContext(SID, { appId: "", accessToken: "" });
+    await callFor(ToolNames.START_SITE_AUDIT, { domain: "secret-domain.test" }, SID);
+    const lines = spy.mock.calls.map((c) => String(c[0]));
+    const line = lines.find((l) => l.includes('"tool.call"'));
+    expect(JSON.parse(line!)).toMatchObject({ tool: ToolNames.START_SITE_AUDIT, session: SID.slice(0, 8) });
+    expect(lines.join("\n")).not.toContain("secret-domain.test");
+    spy.mockRestore();
+  });
+
+  it("no longer advertises the placeholder logging capability", async () => {
+    const { client, cleanup } = await connect();
+    try {
+      expect(client.getServerCapabilities()?.logging).toBeUndefined();
+    } finally {
+      await cleanup().catch(() => {});
+    }
   });
 });

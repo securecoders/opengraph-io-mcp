@@ -1,8 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { scrapeSite } from "@/utils/og";
-import { formatScrape, formatError, toResult } from "@/utils/format";
+import { formatScrape, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 class GetOgScrapeDataTool extends BaseTool {
@@ -38,7 +39,7 @@ class GetOgScrapeDataTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to scrape."),
+        url: httpUrl().describe("URL of the webpage to scrape."),
         cache_ok: z.boolean().optional().describe(
             "Use cached results. Set to false to bypass cache and get fresh data. Defaults to true.",
         ),
@@ -112,6 +113,7 @@ class GetOgScrapeDataTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:         z.string(),
         html:        z.string().describe("Full raw HTML of the scraped page"),
         length:      z.number().describe("Character count of the HTML"),
@@ -122,7 +124,7 @@ class GetOgScrapeDataTool extends BaseTool {
         try {
             const { url, ...options } = args;
             const html = await scrapeSite(url, this.appId, options);
-            return toResult(formatScrape(url, html));
+            return toUntrustedResult(formatScrape(url, html), url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Scrape HTML", reason));

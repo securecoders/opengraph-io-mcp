@@ -111,13 +111,14 @@ describe("CORS", () => {
     expect(res.headers["access-control-allow-headers"]).toContain("MCP-Session-Id");
   });
 
-  // Current documented behaviour: reflect by default. #38 changes this; the test
-  // is here so that change is a deliberate edit rather than a silent one.
-  it("reflects an arbitrary origin while MCP_ALLOWED_ORIGINS is unset", async () => {
+  // #38: an unset allowlist used to reflect any origin with credentials and
+  // expose the session id to it. It now allows no origin at all.
+  it("allows no origin while MCP_ALLOWED_ORIGINS is unset", async () => {
     delete process.env.MCP_ALLOWED_ORIGINS;
     const res = await call("GET", "/health", { headers: { origin: "https://evil.test" } });
-    expect(res.headers["access-control-allow-origin"]).toBe("https://evil.test");
-    expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
+    expect(res.headers["access-control-expose-headers"]).toBeUndefined();
     expect(res.headers["vary"]).toBe("Origin");
   });
 
@@ -129,9 +130,11 @@ describe("CORS", () => {
     expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
-  it("still exposes the session id header clients need to read", async () => {
+  it("exposes the session id header to an allowed origin", async () => {
+    process.env.MCP_ALLOWED_ORIGINS = "https://example.test";
     const res = await call("GET", "/health", { headers: { origin: "https://example.test" } });
     expect(res.headers["access-control-expose-headers"]).toContain("MCP-Session-Id");
+    expect(res.headers["access-control-allow-credentials"]).toBe("true");
   });
 });
 

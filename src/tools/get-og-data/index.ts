@@ -1,8 +1,9 @@
 import BaseTool from "@/tools/base";
 import { ToolNames } from "@/tools/constants";
 import { z } from "zod";
+import { httpUrl } from "@/utils/urlInput";
 import { getSiteOgData } from "@/utils/og";
-import { formatOgData, formatError, toResult } from "@/utils/format";
+import { formatOgData, formatError, toResult, toUntrustedResult, provenanceSchema } from "@/utils/format";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 // Shared rendering/fetch/proxy/sanitizer param block reused across tools
@@ -110,7 +111,7 @@ class GetOgDataTool extends BaseTool {
     };
 
     inputSchema = z.object({
-        url: z.string().url().describe("URL of the webpage to analyze."),
+        url: httpUrl().describe("URL of the webpage to analyze."),
         use_ai: z.boolean().optional().describe(
             "Enhance the metadata response with AI-generated fields. Requires an AI-enabled plan.",
         ),
@@ -118,6 +119,7 @@ class GetOgDataTool extends BaseTool {
     });
 
     outputSchema = z.object({
+        provenance: provenanceSchema,
         url:          z.string(),
         hybridGraph:  z.any().describe("Best-of merged metadata from all sources"),
         openGraph:    z.any().describe("Raw Open Graph tag values"),
@@ -129,7 +131,7 @@ class GetOgDataTool extends BaseTool {
         try {
             const { url, ...options } = args;
             const data = await getSiteOgData(url, this.appId, options);
-            return toResult(formatOgData(url, data));
+            return toUntrustedResult(formatOgData(url, data), url);
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
             return toResult(formatError("Get Open Graph Data", reason));
