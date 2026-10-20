@@ -1,6 +1,6 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { type Request, type Response } from "express";
 import { createServer } from "../mcp.js";
 import { setAuthContext, deleteAppId, type AuthContext } from "@/utils/sessionIdToAppId";
@@ -34,6 +34,8 @@ export interface SessionEntry {
   lastSeenAt: number;
   /** Client address at creation, for the per-address cap. */
   ip?: string;
+  /** When the bound bearer token expires; refreshed by every authenticated POST. */
+  credentialExpiresAt?: number;
 }
 
 export const sessions = new Map<string, SessionEntry>();
@@ -61,13 +63,23 @@ function evict(sid: string, entry: SessionEntry): void {
 // DELETE /mcp now requires a valid credential, so a client whose token expired
 // can no longer release its own session — and the entry holds that client's
 // access token. Sweep idle sessions rather than letting them accumulate.
-const sweep = setInterval(() => {
-  const cutoff = Date.now() - SESSION_IDLE_MS;
+export function sweepSessions(now = Date.now()): void {
+  const cutoff = now - SESSION_IDLE_MS;
   for (const [sid, entry] of sessions) {
-    if (entry.lastSeenAt > cutoff) continue;
-    evict(sid, entry);
+    if (entry.lastSeenAt <= cutoff) {
+      evict(sid, entry);
+      continue;
+    }
+    // An expired token is no use to anyone and must not sit in memory. The
+    // session survives; the client's next request binds its refreshed token.
+    if (entry.credentialExpiresAt !== undefined && entry.credentialExpiresAt <= now) {
+      deleteAppId(sid);
+      entry.credentialExpiresAt = undefined;
+    }
   }
-}, Math.min(SESSION_IDLE_MS, 5 * 60 * 1000));
+}
+
+const sweep = setInterval(() => sweepSessions(), Math.min(SESSION_IDLE_MS, 5 * 60 * 1000));
 sweep.unref();
 
 /** Clients that never DELETE would otherwise be refused; drop their own oldest session instead. */
@@ -92,6 +104,35 @@ export function countSessionsFromIp(ip: string): number {
 // Auth helpers
 // ---------------------------------------------------------------------------
 
+// x-app-id is an unverified claim of identity, so hosted leaves it off; stdio
+// never reaches this code and self-host opts in. Read per request: the
+// entrypoint loads .env after this module is imported.
+export function legacyAppIdAllowed(): boolean {
+  return process.env.MCP_ALLOW_LEGACY_APP_ID === "true";
+}
+
+/** API keys are UUIDs (older ones hex); anything else is refused before it reaches a URL. */
+const LEGACY_APP_ID_FORMAT = /^[A-Za-z0-9_-]{16,128}$/;
+
+const DEPRECATION_LINK = '<https://github.com/securecoders/opengraph-io-mcp#authentication>; rel="deprecation"';
+
+/** Only the x-app-id path yields a context with no subject. */
+function isLegacy(ctx: AuthContext): boolean {
+  return !ctx.subject;
+}
+
+// RFC 9745. Clients that surface deprecations can warn the user; the log is how
+// we see who still depends on the header before turning it off.
+function markDeprecated(res: Response): void {
+  res.setHeader("Deprecation", "true");
+  res.setHeader("Link", DEPRECATION_LINK);
+}
+
+/** A short fingerprint, never the key: enough to count distinct callers. */
+export function keyFingerprint(appId: string): string {
+  return createHash("sha256").update(appId).digest("hex").slice(0, 12);
+}
+
 /**
  * Attempt to extract credentials from the request.
  * Returns an AuthContext on success, null if credentials are absent or invalid.
@@ -109,15 +150,15 @@ export async function extractAuth(req: Request): Promise<AuthContext | null> {
         organizationId: claims.organizationId,
         scope:          claims.scope,
         accessToken:    rawToken,
+        expiresAt:      claims.expiresAt,
       };
     } catch {
       return null;
     }
   }
 
-  // Legacy fallback: x-app-id header
   const legacyAppId = req.headers["x-app-id"] as string | undefined;
-  if (legacyAppId) {
+  if (legacyAppId && legacyAppIdAllowed() && LEGACY_APP_ID_FORMAT.test(legacyAppId)) {
     return { appId: legacyAppId };
   }
 
@@ -132,8 +173,9 @@ export function sendUnauthorized(res: Response): void {
   );
   res.status(401).json({
     error: "unauthorized",
-    error_description:
-      "Provide an OAuth 2.1 bearer token or a legacy x-app-id header.",
+    error_description: legacyAppIdAllowed()
+      ? "Provide an OAuth 2.1 bearer token or a legacy x-app-id header."
+      : "Provide an OAuth 2.1 bearer token.",
   });
 }
 
@@ -177,7 +219,9 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
       res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
       return;
     }
+    if (isLegacy(authCtx)) markDeprecated(res);
     setAuthContext(sessionId, authCtx);
+    session.credentialExpiresAt = authCtx.expiresAt;
     session.lastSeenAt = Date.now();
     await session.transport.handleRequest(req, res, req.body);
     return;
@@ -216,13 +260,21 @@ export async function handlePost(req: Request, res: Response): Promise<void> {
     return;
   }
   makeRoomForOwner(owner);
+  if (isLegacy(authCtx)) {
+    markDeprecated(res);
+    console.warn("[mcp] deprecated x-app-id session opened", { key: keyFingerprint(authCtx.appId) });
+  }
 
   const { server, cleanup } = createServer();
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     onsessioninitialized: (sid) => {
-      sessions.set(sid, { transport, cleanup, owner, ip, lastSeenAt: Date.now() });
+      sessions.set(sid, {
+        transport, cleanup, owner, ip,
+        credentialExpiresAt: authCtx.expiresAt,
+        lastSeenAt: Date.now(),
+      });
       // Bind the resolved auth context to the real session ID
       setAuthContext(sid, authCtx);
     },
@@ -267,6 +319,7 @@ export async function resolveOwnedSession(req: Request, res: Response): Promise<
     res.status(403).json({ error: "forbidden", error_description: "Session belongs to a different principal." });
     return null;
   }
+  if (isLegacy(ctx)) markDeprecated(res);
   session.lastSeenAt = Date.now();
   return session;
 }

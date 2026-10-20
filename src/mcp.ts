@@ -170,7 +170,16 @@ IMAGE GENERATION TOOLS:
   extract-structured-data, get-page-content) and image prompts for guided workflows.
 `;
 
-export const createServer = () => {
+export interface ServerOptions {
+    /**
+     * A single local user over stdio. Set by the stdio entrypoint, never inferred:
+     * an HTTP request that merely lacks a session id must not get local privileges
+     * (the env app id, and writing to disk).
+     */
+    local?: boolean;
+}
+
+export const createServer = ({ local = false }: ServerOptions = {}) => {
     const mcpServer = new McpServer(
         {
             name: "og-mcp-server",
@@ -195,10 +204,9 @@ export const createServer = () => {
     let subsUpdateInterval: NodeJS.Timeout | undefined;
     let logLevel: LoggingLevel = "debug";
     // Only tool calls and resource reads cost upstream work; credits cap the bill, not our load.
-    // stdio has no session id and one local user, so the budget only applies over HTTP.
+    // stdio has one local user, so the budget only applies over HTTP.
     const callBudget = new TokenBucket(CALL_BURST, CALL_REFILL_PER_SEC);
-    const overBudget = (): boolean =>
-        Boolean((server.transport as any)?.sessionId) && !callBudget.take();
+    const overBudget = (): boolean => !local && !callBudget.take();
 
     // Set up update interval for subscribed resources
     subsUpdateInterval = setInterval(() => {
@@ -254,8 +262,16 @@ export const createServer = () => {
                 throw new Error("Invalid session ID or asset ID format - must be valid UUIDs");
             }
 
+            // Same rule as tools: over HTTP the session's own key, never the
+            // server's OPENGRAPH_APP_ID.
+            const transportSession = (server.transport as any)?.sessionId as string | undefined;
+            const assetAppId = transportSession ? getAuthContext(transportSession)?.appId : undefined;
+            if (!local && !assetAppId) {
+                throw new Error("Could not find App ID for session.");
+            }
+
             try {
-                const { data, contentType } = await getAssetFile(assetId);
+                const { data, contentType } = await getAssetFile(assetId, assetAppId);
                 return {
                     contents: [
                         {
@@ -990,8 +1006,8 @@ After presenting, ask: **"Would you like me to fix any of these issues in the co
         // organizationId + accessToken — required for Site Audit calls
         const organizationId = authCtx?.organizationId ?? "";
         const accessToken    = authCtx?.accessToken ?? "";
-        const isLocal = !sessionId;
-        
+        const isLocal = local;
+
         const tool = resolveTool(name, {
             appId: appId ?? "",
             organizationId,

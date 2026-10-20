@@ -93,6 +93,7 @@ describe("verifyAccessToken — the happy path", () => {
       appId: "key-a",
       organizationId: "org-1",
       scope: "mcp",
+      expiresAt: expect.any(Number),
     });
   });
 
@@ -162,15 +163,18 @@ describe("verifyAccessToken — time and addressing", () => {
       .rejects.toThrow();
   });
 
-  // Documents the open fail-open in #25 rather than asserting it is correct:
-  // with OAUTH_ISSUER unset the constraint is dropped entirely, so any issuer
-  // whose key the JWKS serves is accepted. Phase 2 changes this, and this test
-  // is what makes that a deliberate edit.
-  it("does NOT check the issuer when OAUTH_ISSUER is unset (known gap, #25)", async () => {
+  // #25: an unset OAUTH_ISSUER used to drop the iss check entirely, so any
+  // issuer whose key the JWKS served was accepted. It now refuses the token.
+  it("refuses every token when OAUTH_ISSUER is unset, rather than skipping the check", async () => {
     delete process.env.OAUTH_ISSUER;
     resetJwksCache();
-    const claims = await verifyAccessToken(await sign({}, { iss: "https://anyone.test" }));
-    expect(claims.subject).toBe("user-1");
+    await expect(verifyAccessToken(await sign({}, { iss: "https://anyone.test" })))
+      .rejects.toThrow(/OAUTH_ISSUER/);
+    await expect(verifyAccessToken(await sign())).rejects.toThrow(/OAUTH_ISSUER/);
+  });
+
+  it("matches the issuer exactly, so a trailing slash is a different issuer", async () => {
+    await expect(verifyAccessToken(await sign({}, { iss: `${ISSUER}/` }))).rejects.toThrow();
   });
 
   it("uses the production audience by default when OAUTH_AUDIENCE is unset", async () => {
@@ -198,15 +202,45 @@ describe("verifyAccessToken — required claims", () => {
       .rejects.toThrow(/og_org_id/);
   });
 
-  // Documents the second half of #48: a token that carries no scope is treated
-  // as MCP-scoped rather than refused.
-  it("substitutes 'mcp' for a missing scope (known gap, #48)", async () => {
-    const claims = await verifyAccessToken(await sign({ scope: undefined }));
-    expect(claims.scope).toBe("mcp");
+  // #48: a token with no scope used to be read as mcp-scoped. apifur-api refuses
+  // such a token for MCP, so this server must too.
+  it("refuses a token with no scope", async () => {
+    await expect(verifyAccessToken(await sign({ scope: undefined }))).rejects.toThrow(/mcp scope/);
+  });
+
+  it("refuses a token whose scope does not include mcp", async () => {
+    await expect(verifyAccessToken(await sign({ scope: "openid profile" }))).rejects.toThrow(/mcp scope/);
+  });
+
+  it("accepts mcp alongside other scopes", async () => {
+    await expect(verifyAccessToken(await sign({ scope: "offline_access mcp" })))
+      .resolves.toMatchObject({ scope: "offline_access mcp" });
+  });
+
+  it("refuses a token with no exp, which would otherwise never expire", async () => {
+    const jwt = await new SignJWT({ og_app_id: "key-a", og_org_id: "org-1", scope: "mcp" })
+      .setProtectedHeader({ alg: "RS256", kid: KID })
+      .setAudience(AUDIENCE)
+      .setIssuer(ISSUER)
+      .setSubject("user-1")
+      .sign(privateKey);
+    await expect(verifyAccessToken(jwt)).rejects.toThrow();
+  });
+
+  it("reports when the token expires", async () => {
+    const exp = Math.floor(Date.now() / 1000) + 600;
+    const claims = await verifyAccessToken(await sign({}, { exp }));
+    expect(claims.expiresAt).toBe(exp * 1000);
   });
 });
 
 describe("verifyAccessToken — configuration", () => {
+  it("refuses an http JWKS URL, which would let the path swap signing keys", async () => {
+    process.env.OAUTH_JWKS_URL = "http://keys.example.test/jwks.json";
+    resetJwksCache();
+    await expect(verifyAccessToken(await sign())).rejects.toThrow(/OAUTH_JWKS_URL/);
+  });
+
   it("throws a named error when OAUTH_JWKS_URL is unset", async () => {
     delete process.env.OAUTH_JWKS_URL;
     resetJwksCache();

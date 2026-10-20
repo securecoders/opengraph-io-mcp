@@ -24,6 +24,8 @@ export interface AuthContext {
    * Only present for OAuth-authenticated sessions, not x-app-id fallback.
    */
   accessToken?: string;
+  /** Epoch ms when the bearer token expires; absent on the x-app-id path. */
+  expiresAt?: number;
 }
 
 const store = new Map<string, AuthContext>();

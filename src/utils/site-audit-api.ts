@@ -9,6 +9,7 @@
  */
 
 import dotenv from "dotenv";
+import { serviceUrl } from "@/utils/serviceUrl";
 import {
     SITE_AUDIT_TIMEOUT_MS,
     fetchWithTimeout,
@@ -30,7 +31,7 @@ const seg = pathSegment;
 // ---------------------------------------------------------------------------
 
 export const getSiteAuditBaseUrl = (): string =>
-    process.env.SITE_AUDIT_API_URL || "https://dashboard-api.opengraph.io";
+    serviceUrl("SITE_AUDIT_API_URL", "https://dashboard-api.opengraph.io");
 
 // ---------------------------------------------------------------------------
 // Shared types (minimal — controllers define the full shapes)

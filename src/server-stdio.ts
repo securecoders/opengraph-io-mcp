@@ -15,7 +15,7 @@ export function createSandboxServer() {
   // Set a mock app ID for sandbox mode
   process.env.OPENGRAPH_APP_ID = "sandbox-test-key";
   
-  const { server } = createServer();
+  const { server } = createServer({ local: true });
   return server;
 }
 
@@ -47,7 +47,7 @@ if (isMainModule) {
   }
 
   // Create the MCP server
-  const { server, cleanup } = createServer();
+  const { server, cleanup } = createServer({ local: true });
 
   // Main function to run the server
   async function run() {

@@ -13,7 +13,8 @@ vi.mock("../src/mcp.js", () => ({
 
 import { verifyAccessToken } from "@/utils/oauth";
 import { createServer } from "../src/mcp.js";
-import { handlePost, handleGet, handleDelete, sessions, resolveIdleMs } from "@/http/handlers";
+import { handlePost, handleGet, handleDelete, sessions, resolveIdleMs, sweepSessions, keyFingerprint } from "@/http/handlers";
+import { getAuthContext, setAuthContext } from "@/utils/sessionIdToAppId";
 
 const SID = "session-1";
 
@@ -95,26 +96,70 @@ describe.each([
   });
 });
 
+const KEY_A = "11111111-1111-4111-8111-111111111111";
+const KEY_B = "22222222-2222-4222-8222-222222222222";
+
+function allowLegacy() {
+  const prior = process.env.MCP_ALLOW_LEGACY_APP_ID;
+  beforeEach(() => { process.env.MCP_ALLOW_LEGACY_APP_ID = "true"; });
+  afterEach(() => {
+    if (prior === undefined) delete process.env.MCP_ALLOW_LEGACY_APP_ID;
+    else process.env.MCP_ALLOW_LEGACY_APP_ID = prior;
+  });
+}
+
 describe("legacy x-app-id sessions", () => {
+  allowLegacy();
+
   it("binds to the app id and rejects a different one", async () => {
     sessions.set(SID, {
       transport: { handleRequest: async () => { handled += 1; } } as any,
-      cleanup: async () => {}, owner: "app:key-a", lastSeenAt: Date.now(),
+      cleanup: async () => {}, owner: `app:${KEY_A}`, lastSeenAt: Date.now(),
     });
     const res = makeRes();
-    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": "key-b" }), res as any);
+    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": KEY_B }), res as any);
 
     expect(res.statusCode).toBe(403);
     expect(handled).toBe(0);
   });
 
+  it("marks every legacy response deprecated", async () => {
+    sessions.set(SID, {
+      transport: { handleRequest: async () => { handled += 1; } } as any,
+      cleanup: async () => {}, owner: `app:${KEY_A}`, lastSeenAt: Date.now(),
+    });
+    const post = makeRes();
+    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": KEY_A }), post as any);
+    const get = makeRes();
+    await handleGet(makeReq({ "mcp-session-id": SID, "x-app-id": KEY_A }), get as any);
+
+    for (const res of [post, get]) {
+      expect(res.headers["Deprecation"]).toBe("true");
+      expect(res.headers["Link"]).toMatch(/rel="deprecation"/);
+    }
+  });
+
+  it("logs a new legacy session by fingerprint, never by key", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const req = {
+      headers: { "x-app-id": KEY_A },
+      body: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
+    } as any;
+    await handlePost(req, makeRes() as any).catch(() => {});
+
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain(keyFingerprint(KEY_A));
+    expect(logged).not.toContain(KEY_A);
+    warn.mockRestore();
+  });
+
   it("serves a matching app id", async () => {
     sessions.set(SID, {
       transport: { handleRequest: async () => { handled += 1; } } as any,
-      cleanup: async () => {}, owner: "app:key-a", lastSeenAt: Date.now(),
+      cleanup: async () => {}, owner: `app:${KEY_A}`, lastSeenAt: Date.now(),
     });
     const res = makeRes();
-    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": "key-a" }), res as any);
+    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": KEY_A }), res as any);
 
     expect(handled).toBe(1);
   });
@@ -214,9 +259,12 @@ describe("session creation is reserved for initialize", () => {
 // namespaces the two, so they can never collide — but that was only pinned as a
 // unit test on ownerKey itself, never through a handler.
 describe("cross-shape principals cannot take over a session", () => {
+  allowLegacy();
+
   it("rejects an x-app-id request against an OAuth-owned session", async () => {
+    sessions.get(SID)!.owner = `sub:${KEY_A}`;
     const res = makeRes();
-    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": "user-1" }), res as any);
+    await handlePost(makeReq({ "mcp-session-id": SID, "x-app-id": KEY_A }), res as any);
     expect(res.statusCode).toBe(403);
     expect(handled).toBe(0);
   });
@@ -268,5 +316,59 @@ describe("resolveIdleMs", () => {
   it("falls back when unset", () => {
     delete process.env.MCP_SESSION_IDLE_MS;
     expect(resolveIdleMs()).toBe(30 * 60 * 1000);
+  });
+});
+
+// #34: the stored context held the opener's raw bearer token for as long as the
+// session lived. It is now dropped once the token expires; the session itself
+// survives, so a client that refreshes carries on without re-initializing.
+describe("credential expiry", () => {
+  it("drops an expired token from memory but keeps the session", () => {
+    const now = Date.now();
+    sessions.get(SID)!.credentialExpiresAt = now - 1;
+    setAuthContext(SID, { subject: "user-1", appId: "k", accessToken: "raw.jwt" });
+
+    sweepSessions(now);
+
+    expect(getAuthContext(SID)).toBeUndefined();
+    expect(sessions.has(SID)).toBe(true);
+  });
+
+  it("leaves a live token alone", () => {
+    const now = Date.now();
+    sessions.get(SID)!.credentialExpiresAt = now + 60_000;
+    setAuthContext(SID, { subject: "user-1", appId: "k", accessToken: "raw.jwt" });
+
+    sweepSessions(now);
+
+    expect(getAuthContext(SID)?.accessToken).toBe("raw.jwt");
+  });
+
+  it("takes the new expiry from each authenticated request", async () => {
+    const exp = Date.now() + 3_600_000;
+    vi.mocked(verifyAccessToken).mockResolvedValue({
+      subject: "user-1", appId: "k", organizationId: "org-1", scope: "mcp", expiresAt: exp,
+    });
+    await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
+
+    expect(sessions.get(SID)!.credentialExpiresAt).toBe(exp);
+    expect(getAuthContext(SID)?.accessToken).toBe("t");
+  });
+
+  it("still evicts an idle session outright", () => {
+    sessions.get(SID)!.lastSeenAt = 0;
+    sweepSessions(Date.now());
+    expect(sessions.has(SID)).toBe(false);
+  });
+});
+
+describe("bearer sessions", () => {
+  it("are not marked deprecated", async () => {
+    vi.mocked(verifyAccessToken).mockResolvedValue({
+      subject: "user-1", appId: "k", organizationId: "org-1", scope: "mcp",
+    });
+    const res = makeRes();
+    await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
+    expect(res.headers["Deprecation"]).toBeUndefined();
   });
 });

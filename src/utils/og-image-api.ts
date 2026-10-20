@@ -1,4 +1,5 @@
 import { getBaseUrl } from "@/utils/og";
+import { serviceUrl } from "@/utils/serviceUrl";
 import {
     IMAGE_AGENT_TIMEOUT_MS,
     fetchWithTimeout,
@@ -27,10 +28,7 @@ async function throwFailed(action: string, response: Response): Promise<never> {
  * 2. OG_BASE_URL + /image-agent — production default (e.g. https://opengraph.io/image-agent)
  */
 const getImageAgentBaseUrl = (): string => {
-    if (process.env.OG_IMAGE_AGENT_URL) {
-        return process.env.OG_IMAGE_AGENT_URL.replace(/\/+$/, '');
-    }
-    return `${getBaseUrl()}/image-agent`;
+    return serviceUrl('OG_IMAGE_AGENT_URL', `${getBaseUrl()}/image-agent`);
 };
 
 /**
@@ -50,14 +48,13 @@ const getHeaders = (): Record<string, string> => {
     };
 };
 
-/**
- * Append app_id as query parameter to URL
- */
-const withAppId = (url: string, app_id?: string): string => {
+/** URLSearchParams encodes the value, so an app id cannot add or replace other parameters. */
+export const withAppId = (url: string, app_id?: string): string => {
     const appId = getAppId(app_id);
     if (!appId) return url;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}app_id=${appId}`;
+    const parsed = new URL(url);
+    parsed.searchParams.set('app_id', appId);
+    return parsed.toString();
 };
 
 // ============================================

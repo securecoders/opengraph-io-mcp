@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { CreateMessageRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "@/mcp";
+import { deleteAppId, setAuthContext } from "@/utils/sessionIdToAppId";
 
 // resources/subscribe used to fire a server-initiated sampling/createMessage at
 // the client, carrying a leftover "You are a helpful test server." prompt and
@@ -53,6 +54,58 @@ describe("resources/subscribe", () => {
     try {
       await client.subscribeResource({ uri });
       await expect(client.unsubscribeResource({ uri })).resolves.toBeDefined();
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+});
+
+// #19: an asset read used to call the image agent with no app id at all, so
+// over HTTP it always ran as the server's own OPENGRAPH_APP_ID.
+describe("resources/read on an HTTP session", () => {
+  const ASSET_URI = "asset://11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222";
+  const guard = globalThis.fetch;
+  let urls: string[] = [];
+
+  beforeEach(() => {
+    urls = [];
+    process.env.OPENGRAPH_APP_ID = "operator-key";
+    globalThis.fetch = (async (input: unknown) => {
+      urls.push(String(input));
+      return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
+    }) as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = guard;
+    delete process.env.OPENGRAPH_APP_ID;
+    deleteAppId("res-session");
+  });
+
+  async function connectHttp() {
+    const { server, cleanup } = createServer();
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    (serverT as any).sessionId = "res-session";
+    const client = new Client({ name: "test", version: "1.0.0" }, { capabilities: {} });
+    await Promise.all([client.connect(clientT), (server as any).connect(serverT)]);
+    return { client, cleanup };
+  }
+
+  it("refuses without a session key instead of using the server's", async () => {
+    const { client, cleanup } = await connectHttp();
+    try {
+      await expect(client.readResource({ uri: ASSET_URI })).rejects.toThrow(/App ID/);
+      expect(urls).toHaveLength(0);
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+
+  it("reads with the session's own key", async () => {
+    setAuthContext("res-session", { appId: "33333333-3333-4333-8333-333333333333" });
+    const { client, cleanup } = await connectHttp();
+    try {
+      await client.readResource({ uri: ASSET_URI });
+      expect(new URL(urls[0]).searchParams.get("app_id")).toBe("33333333-3333-4333-8333-333333333333");
     } finally {
       await cleanup().catch(() => {});
     }

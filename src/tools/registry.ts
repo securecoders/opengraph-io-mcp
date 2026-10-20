@@ -43,10 +43,10 @@ export interface ToolContext {
 interface ToolRegistration {
   create: (ctx: ToolContext) => BaseTool;
   /**
-   * Data tools bill through app_id and refuse to run without one on a real
-   * session. Image and site-audit tools deliberately do not: image tools bill
-   * differently, and site-audit tools return a "reconnect to authorize" result
-   * from execute() rather than throwing.
+   * Data and image tools refuse to run without the session's own app id over
+   * HTTP; otherwise the API client falls back to the server's OPENGRAPH_APP_ID and
+   * bills the operator. Site-audit tools don't carry it: they return a "reconnect
+   * to authorize" result from execute() rather than throwing.
    */
   requiresAppId?: boolean;
 }
@@ -59,10 +59,10 @@ const REGISTRY: Record<ToolNames, ToolRegistration> = {
   [ToolNames.GET_OG_EXTRACT]:     { create: (c) => new GetOgExtractTool(c.appId),     requiresAppId: true },
   [ToolNames.GET_OG_MARKDOWN]:    { create: (c) => new GetOgMarkdownTool(c.appId),    requiresAppId: true },
 
-  [ToolNames.GENERATE_IMAGE]:        { create: (c) => new GenerateImageTool(c.appId) },
-  [ToolNames.ITERATE_IMAGE]:         { create: (c) => new IterateImageTool(c.appId) },
-  [ToolNames.INSPECT_IMAGE_SESSION]: { create: (c) => new InspectImageSessionTool(c.appId) },
-  [ToolNames.EXPORT_IMAGE_ASSET]:    { create: (c) => new ExportImageAssetTool(c.appId, c.isLocal) },
+  [ToolNames.GENERATE_IMAGE]:        { create: (c) => new GenerateImageTool(c.appId),                 requiresAppId: true },
+  [ToolNames.ITERATE_IMAGE]:         { create: (c) => new IterateImageTool(c.appId),                  requiresAppId: true },
+  [ToolNames.INSPECT_IMAGE_SESSION]: { create: (c) => new InspectImageSessionTool(c.appId),           requiresAppId: true },
+  [ToolNames.EXPORT_IMAGE_ASSET]:    { create: (c) => new ExportImageAssetTool(c.appId, c.isLocal), requiresAppId: true },
 
   [ToolNames.DISCOVER_SITE_URLS]:    { create: (c) => new DiscoverSiteUrlsTool(c.accessToken, c.organizationId) },
   [ToolNames.START_SITE_AUDIT]:      { create: (c) => new StartSiteAuditTool(c.accessToken, c.organizationId) },

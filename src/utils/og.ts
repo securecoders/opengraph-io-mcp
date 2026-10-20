@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { z } from "zod";
+import { serviceUrl } from "@/utils/serviceUrl";
 import {
     OG_API_TIMEOUT_MS,
     fetchWithTimeout,
@@ -16,7 +17,7 @@ dotenv.config();
 // ---------------------------------------------------------------------------
 
 export const getBaseUrl = (): string => {
-    return process.env.OG_BASE_URL || 'https://opengraph.io';
+    return serviceUrl('OG_BASE_URL', 'https://opengraph.io');
 };
 
 const getAppId = (app_id?: string): string => {
@@ -163,9 +164,8 @@ export interface MarkdownResult {
 // Query parameter builder
 // ---------------------------------------------------------------------------
 
-function buildQueryParams(options: Record<string, any>, appId: string): string {
+export function buildQueryParams(options: Record<string, any>, appId: string): string {
     const params = new URLSearchParams();
-    params.set('app_id', appId);
 
     // Default accept_lang to 'auto' when not explicitly provided
     if (options.accept_lang === undefined) {
@@ -188,6 +188,8 @@ function buildQueryParams(options: Record<string, any>, appId: string): string {
         }
     }
 
+    // Last, so no option can replace the caller's own credential.
+    params.set('app_id', appId);
     return params.toString();
 }
 

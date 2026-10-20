@@ -42,8 +42,13 @@ function fakeRes() {
   };
 }
 
-beforeEach(() => { sessions.clear(); });
-afterEach(() => { sessions.clear(); });
+const priorLegacy = process.env.MCP_ALLOW_LEGACY_APP_ID;
+beforeEach(() => { sessions.clear(); process.env.MCP_ALLOW_LEGACY_APP_ID = "true"; });
+afterEach(() => {
+  sessions.clear();
+  if (priorLegacy === undefined) delete process.env.MCP_ALLOW_LEGACY_APP_ID;
+  else process.env.MCP_ALLOW_LEGACY_APP_ID = priorLegacy;
+});
 
 describe("TokenBucket", () => {
   it("allows the burst, refuses the next, and refills over time", () => {
@@ -93,7 +98,7 @@ describe("process-wide session ceiling", () => {
       setHeader(k: string, v: string) { this.headers[k] = v; },
     };
     const req: any = {
-      headers: { "x-app-id": "new-app" },
+      headers: { "x-app-id": "33333333-3333-4333-8333-333333333333" },
       body: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
     };
 
@@ -105,7 +110,7 @@ describe("process-wide session ceiling", () => {
   });
 
   it("does not evict the caller's own session when it is about to refuse them anyway", async () => {
-    for (let i = 0; i < MAX_SESSIONS_PER_OWNER; i++) sessions.set(`own${i}`, entry("app:mine", i));
+    for (let i = 0; i < MAX_SESSIONS_PER_OWNER; i++) sessions.set(`own${i}`, entry("app:44444444-4444-4444-8444-444444444444", i));
     for (let i = sessions.size; i < MAX_SESSIONS; i++) sessions.set(`s${i}`, entry(`app:${i}`, Date.now()));
     const res: any = {
       statusCode: 0, headers: {} as Record<string, string>,
@@ -114,7 +119,7 @@ describe("process-wide session ceiling", () => {
       setHeader(k: string, v: string) { this.headers[k] = v; },
     };
     const req: any = {
-      headers: { "x-app-id": "mine" },
+      headers: { "x-app-id": "44444444-4444-4444-8444-444444444444" },
       body: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
     };
 
@@ -132,7 +137,7 @@ describe("sessions per address", () => {
     for (let i = 0; i < MAX_SESSIONS_PER_IP; i++) sessions.set(`s${i}`, entry(`app:${i}`, Date.now(), undefined, "203.0.113.9"));
     const res = fakeRes();
 
-    await handlePost({ ip: "203.0.113.9", headers: { "x-app-id": "fresh" }, body: INITIALIZE } as any, res as any);
+    await handlePost({ ip: "203.0.113.9", headers: { "x-app-id": "55555555-5555-4555-8555-555555555555" }, body: INITIALIZE } as any, res as any);
 
     expect(res.statusCode).toBe(429);
     expect(countSessionsFromIp("203.0.113.9")).toBe(MAX_SESSIONS_PER_IP);
@@ -147,7 +152,7 @@ describe("sessions per address", () => {
 
 describe("per-session call budget", () => {
   async function connect(sessionId: string | null = "http-session") {
-    const { server, cleanup } = createServer();
+    const { server, cleanup } = createServer({ local: sessionId === null });
     const [clientT, serverT] = InMemoryTransport.createLinkedPair();
     if (sessionId) (serverT as any).sessionId = sessionId;
     const client = new Client({ name: "test", version: "1.0.0" }, { capabilities: {} });
