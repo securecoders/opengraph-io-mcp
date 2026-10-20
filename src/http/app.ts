@@ -2,6 +2,10 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { rateLimit } from "express-rate-limit";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import {
+  hostHeaderValidation,
+  localhostHostValidation,
+} from "@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js";
+import {
   handleProtectedResource,
   handlePost,
   handleGet,
@@ -13,9 +17,10 @@ import {
   resolveTrustProxy,
 } from "@/utils/limits";
 
-// Origin is reflected by default. Safe because auth is an Authorization header,
-// never a cookie, so a cross-origin page cannot forge another user's credential.
-// Set MCP_ALLOWED_ORIGINS to restrict to named origins.
+// No origin is allowed cross-origin unless named in MCP_ALLOWED_ORIGINS. MCP
+// clients are not browsers and never send Origin, so they are unaffected; a
+// browser page on any site used to be reflected with credentials and could read
+// the session id.
 //
 // Read per request rather than at module load: the entrypoint calls
 // dotenv.config() after this module is imported, so a module-level const would
@@ -26,19 +31,18 @@ function allowedOrigins(): string[] {
 }
 
 function cors(req: Request, res: Response, next: NextFunction): void {
-  const origin = (req.headers["origin"] as string | undefined) ?? "*";
-  const allowed = allowedOrigins();
-  if (allowed.length === 0 || allowed.includes(origin)) {
+  const origin = req.headers["origin"] as string | undefined;
+  res.setHeader("Vary", "Origin");
+  if (origin && allowedOrigins().includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Expose-Headers", "MCP-Session-Id, WWW-Authenticate");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, MCP-Session-Id, Accept",
   );
-  res.setHeader("Access-Control-Expose-Headers", "MCP-Session-Id, WWW-Authenticate");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
@@ -98,6 +102,22 @@ function sessionCreateLimiter() {
   });
 }
 
+const LOOPBACK = ["127.0.0.1", "localhost", "::1"];
+
+/** Loopback unless told otherwise; the container image sets MCP_HOST=0.0.0.0. */
+export function resolveBindHost(): string {
+  return process.env.MCP_HOST || "127.0.0.1";
+}
+
+// A DNS rebinding page reaches a loopback server through a hostname it controls,
+// so the Host header is the tell. A public deployment names its own hosts.
+function hostValidation(): ((req: Request, res: Response, next: NextFunction) => void) | null {
+  const named = (process.env.MCP_ALLOWED_HOSTS || "").split(",").map((h) => h.trim()).filter(Boolean);
+  if (named.length > 0) return hostHeaderValidation(named);
+  if (LOOPBACK.includes(resolveBindHost())) return localhostHostValidation();
+  return null;
+}
+
 /**
  * Build the MCP express app without binding a port, so the HTTP layer is
  * reachable from tests. The entrypoint owns listen().
@@ -114,6 +134,8 @@ export function createApp(): Express {
   // Request handling lives in @/http/handlers so it can be tested without binding
   // a port. RFC 9728 protected-resource metadata is part of that module.
   app.get("/.well-known/oauth-protected-resource", handleProtectedResource);
+  const checkHost = hostValidation();
+  if (checkHost) app.use("/mcp", checkHost);
   app.post("/mcp", sessionCreateLimiter(), handlePost);
   app.get("/mcp", handleGet);
   app.delete("/mcp", handleDelete);
