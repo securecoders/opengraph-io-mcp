@@ -17,7 +17,7 @@ class GetConnectionContextTool extends BaseTool {
 
     description =
         "Report which OpenGraph organization this connection is working on behalf of, and which " +
-        "Site Audit features its plan allows.\n\n" +
+        "Open Graph Audit features its plan allows.\n\n" +
         "Call this when a result is unexpectedly empty — it distinguishes 'this organization has " +
         "no data' from 'this connection is pointed at a different organization than you meant'. " +
         "The organization was chosen during authorization and is what every tool here defaults " +
@@ -43,7 +43,7 @@ class GetConnectionContextTool extends BaseTool {
 
     async execute(): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Get Connection Context", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Get Connection Context", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             const ctx = await getConnectionContext(this.accessToken);

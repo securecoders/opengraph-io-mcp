@@ -27,7 +27,7 @@ class DeleteFixItemTool extends BaseTool {
     outputSchema = z.object({ auditId: z.string(), fixItemId: z.string(), deleted: z.boolean() });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("Delete Fix Item", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("Delete Fix Item", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             await deleteFixItem(args.auditId, args.fixItemId, this.accessToken);
             return toResult(formatFixItemDeleted(args.auditId, args.fixItemId));

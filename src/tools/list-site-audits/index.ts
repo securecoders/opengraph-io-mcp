@@ -27,7 +27,7 @@ class ListSiteAuditsTool extends BaseTool {
         "**getSiteAuditChanges** to see what moved since the previous run.";
 
     annotations = {
-        title: "List Site Audits",
+        title: "List Open Graph Audits",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -59,17 +59,17 @@ class ListSiteAuditsTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("List Site Audits", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("List Open Graph Audits", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         if (!this.organizationId) {
-            return toResult(formatError("List Site Audits", "Organization ID not found in token. Reconnect the MCP server."));
+            return toResult(formatError("List Open Graph Audits", "Organization ID not found in token. Reconnect the MCP server."));
         }
         try {
             const result = await listAudits(this.organizationId, this.accessToken, args);
             return toResult(formatAuditList(result, args));
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
-            return toResult(formatError("List Site Audits", reason));
+            return toResult(formatError("List Open Graph Audits", reason));
         }
     }
 }

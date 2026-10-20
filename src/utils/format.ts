@@ -532,7 +532,7 @@ export function formatAuditStarted(
     clamp?: { field: string; requested: number; applied: number; remaining?: number },
 ): FormatResult {
     const lines = [
-        `## Site Audit Started`,
+        `## Open Graph Audit Started`,
         `**${audit.domain}**`,
         '',
         metaLine([`${audit.pagesRequested} pages requested`, AUDIT_STATUS_LABEL[audit.status]]),
@@ -565,7 +565,7 @@ export function formatAuditStatus(audit: AuditSummary): FormatResult {
         : "";
 
     const lines = [
-        `## Site Audit Status`,
+        `## Open Graph Audit Status`,
         `**${audit.domain}**`,
         '',
         `Status: **${statusLabel}**${progress}`,
@@ -624,7 +624,7 @@ export function formatAuditReport(report: any): FormatResult {
 
     // ── Header ────────────────────────────────────────────────────────────────
     const lines: string[] = [
-        `## Site Audit Report — ${domain}`,
+        `## Open Graph Audit Report: ${domain}`,
         '',
         `**Overall Score: ${score != null ? score : '—'}/100** — ${grade}`,
         `${scoreBar(score)}`,
@@ -943,7 +943,7 @@ export function formatAuditList(
     if (audits.length === 0) {
         return {
             markdown: [
-                `## Site Audit History`,
+                `## Open Graph Audit History`,
                 '',
                 applied.length
                     ? `No audits matched — ${applied.join(', ')}.`
@@ -968,7 +968,7 @@ export function formatAuditList(
 
     return {
         markdown: [
-            `## Site Audit History`,
+            `## Open Graph Audit History`,
             '',
             metaLine([`${shown} audits`, ...applied]),
             '',
@@ -1220,7 +1220,7 @@ export function formatConnectionContext(ctx: any): FormatResult {
             `Organization: **${ctx?.organizationName || ctx?.organizationId || 'unknown'}**`,
             `\`${ctx?.organizationId ?? ''}\``,
             '',
-            enabled.length  ? `Available: ${enabled.join(', ')}` : `No site-audit features are enabled on this plan.`,
+            enabled.length  ? `Available: ${enabled.join(', ')}` : `No Open Graph Audit features are enabled on this plan.`,
             disabled.length ? `Not on this plan: ${disabled.join(', ')}` : null,
             '',
             `Tools on this connection act on the organization above by default. To work on a different one, reconnect and choose it during authorization.`,

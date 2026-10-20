@@ -42,7 +42,7 @@ class GetMonitoringScheduleTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken || !this.organizationId) {
-            return toResult(formatError("Get Monitoring Schedule", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Get Monitoring Schedule", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             const result = await getSchedule(args.websiteId, this.organizationId, this.accessToken);

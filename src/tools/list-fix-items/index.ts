@@ -25,7 +25,7 @@ class ListFixItemsTool extends BaseTool {
     outputSchema = z.object({ auditId: z.string(), fixItems: z.array(z.any()) });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("List Fix Items", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("List Fix Items", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             return toResult(formatFixItems(args.auditId, await listFixItems(args.auditId, this.accessToken)));
         } catch (error: unknown) {

@@ -38,7 +38,7 @@ class StartSiteAuditTool extends BaseTool {
         "  previewPageAudit  → Instantly audit a single URL without waiting";
 
     annotations = {
-        title:          "Start Site Audit",
+        title:          "Start Open Graph Audit",
         readOnlyHint:   false,
         destructiveHint: false,
         idempotentHint: false,
@@ -72,10 +72,10 @@ class StartSiteAuditTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Start Site Audit", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Start Open Graph Audit", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         if (!this.organizationId) {
-            return toResult(formatError("Start Site Audit", "Organization ID not found in token. Reconnect the MCP server."));
+            return toResult(formatError("Start Open Graph Audit", "Organization ID not found in token. Reconnect the MCP server."));
         }
         try {
             const { urls, siteContextText, domain, pagesRequested } = args;
@@ -92,7 +92,7 @@ class StartSiteAuditTool extends BaseTool {
             return toResult(formatAuditStarted(result.audit, result.clamp));
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
-            return toResult(formatError("Start Site Audit", reason));
+            return toResult(formatError("Start Open Graph Audit", reason));
         }
     }
 }

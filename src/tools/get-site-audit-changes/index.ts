@@ -27,7 +27,7 @@ class GetSiteAuditChangesTool extends BaseTool {
         "Pass `baseline` to compare against a specific earlier audit instead of the default.";
 
     annotations = {
-        title: "Get Site Audit Changes",
+        title: "Get Open Graph Audit Changes",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -50,7 +50,7 @@ class GetSiteAuditChangesTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Get Site Audit Changes", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Get Open Graph Audit Changes", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             // Two independent gateway reads — run them together, and let one
@@ -67,7 +67,7 @@ class GetSiteAuditChangesTool extends BaseTool {
                 const reason = diffOutcome.status === "rejected"
                     ? (diffOutcome.reason?.message ?? String(diffOutcome.reason))
                     : "Request failed";
-                return toResult(formatError("Get Site Audit Changes", reason));
+                return toResult(formatError("Get Open Graph Audit Changes", reason));
             }
 
             const degraded = !diff
@@ -77,7 +77,7 @@ class GetSiteAuditChangesTool extends BaseTool {
             return toResult(formatAuditChanges(args.auditId, diff, priorities, degraded));
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
-            return toResult(formatError("Get Site Audit Changes", reason));
+            return toResult(formatError("Get Open Graph Audit Changes", reason));
         }
     }
 }

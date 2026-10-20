@@ -215,9 +215,9 @@ describe("emailSiteAuditReport", () => {
   });
 
   it("surfaces a plan-entitlement refusal", async () => {
-    stubFetch({ ok: false, status: 403, body: { error: { code: "PDF_NOT_ENABLED", message: "Your plan does not include emailing site audit reports." } } });
+    stubFetch({ ok: false, status: 403, body: { error: { code: "PDF_NOT_ENABLED", message: "Your plan does not include emailing Open Graph Audit reports." } } });
     const tool = new EmailSiteAuditReportTool("tok");
     const res: any = await tool.execute(tool.inputSchema.parse({ auditId: "a1" }));
-    expect(JSON.stringify(res)).toContain("does not include emailing site audit reports");
+    expect(JSON.stringify(res)).toContain("does not include emailing Open Graph Audit reports");
   });
 });
