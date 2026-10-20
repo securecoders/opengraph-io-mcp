@@ -57,7 +57,7 @@ class ListWebsitesTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken || !this.organizationId) {
-            return toResult(formatError("List Monitored Websites", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("List Monitored Websites", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             if (args.websiteId) {

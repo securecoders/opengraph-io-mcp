@@ -49,7 +49,7 @@ class SaveFixItemsTool extends BaseTool {
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("Save Fix Items", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("Save Fix Items", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         // Caught here too so the agent gets the reason rather than a bare 400.
         // Notes carry guidance rather than a replacement value, so the
         // non-empty rule applies only to edits — matching the gateway.

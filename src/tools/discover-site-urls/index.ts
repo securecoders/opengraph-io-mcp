@@ -61,7 +61,7 @@ class DiscoverSiteUrlsTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Discover Site URLs", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Discover Site URLs", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         if (!this.organizationId) {
             return toResult(formatError("Discover Site URLs", "Organization ID not found in token. Reconnect the MCP server."));

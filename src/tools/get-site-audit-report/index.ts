@@ -33,7 +33,7 @@ class GetSiteAuditReportTool extends BaseTool {
         "  previewPageAudit   → Instant single-URL audit without waiting";
 
     annotations = {
-        title:          "Get Site Audit Report",
+        title:          "Get Open Graph Audit Report",
         readOnlyHint:   true,
         destructiveHint: false,
         idempotentHint: true,
@@ -73,14 +73,14 @@ class GetSiteAuditReportTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Get Site Audit Report", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Get Open Graph Audit Report", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             const { report } = await getAuditReport(args.auditId, this.accessToken);
             return toResult(formatAuditReport(report));
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
-            return toResult(formatError("Get Site Audit Report", reason));
+            return toResult(formatError("Get Open Graph Audit Report", reason));
         }
     }
 }

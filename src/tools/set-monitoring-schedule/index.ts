@@ -28,7 +28,7 @@ class SetMonitoringScheduleTool extends BaseTool {
         "Settings you do not pass are carried over from the stored schedule, so you can change one " +
         "field without re-sending the rest. Alert recipients cannot be set here; they are managed " +
         "in the dashboard. Requires the " +
-        "Site Audit scheduling entitlement — the call fails with a plan message without it.";
+        "Open Graph Audit scheduling entitlement. The call fails with a plan message without it.";
 
     annotations = {
         title: "Set Monitoring Schedule",
@@ -87,7 +87,7 @@ class SetMonitoringScheduleTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken || !this.organizationId) {
-            return toResult(formatError("Set Monitoring Schedule", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Set Monitoring Schedule", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         const { websiteId, enabled, ...schedule } = args;
         try {

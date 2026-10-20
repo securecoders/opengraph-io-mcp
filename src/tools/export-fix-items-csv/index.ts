@@ -25,7 +25,7 @@ class ExportFixItemsCsvTool extends BaseTool {
     outputSchema = z.object({ auditId: z.string(), csv: z.string() });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("Export Fix List as CSV", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("Export Fix List as CSV", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             const csv = await exportFixItemsCsv(args.auditId, this.accessToken);
             return toResult(formatFixItemsCsv(args.auditId, csv ?? ""));

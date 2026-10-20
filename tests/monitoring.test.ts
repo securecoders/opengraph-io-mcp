@@ -184,10 +184,10 @@ describe("setMonitoringSchedule", () => {
 
   it("surfaces a plan-entitlement refusal verbatim", async () => {
     stubFetch({ "/schedule": { ok: false, status: 403,
-      body: { error: { code: "FEATURE_NOT_ALLOWED", message: "Your plan does not include scheduled Site Audit monitoring." } } } });
+      body: { error: { code: "FEATURE_NOT_ALLOWED", message: "Your plan does not include scheduled Open Graph Audit monitoring." } } } });
     const tool = new SetMonitoringScheduleTool("tok", "org-1");
     const res: any = await tool.execute(tool.inputSchema.parse({ websiteId: "w1", frequency: "WEEKLY" }));
-    expect(JSON.stringify(res)).toContain("does not include scheduled Site Audit monitoring");
+    expect(JSON.stringify(res)).toContain("does not include scheduled Open Graph Audit monitoring");
   });
 
   it("passes anchored timing through", async () => {

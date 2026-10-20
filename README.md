@@ -214,7 +214,7 @@ Note: Zed uses `context_servers` instead of `mcpServers`:
 
 ## Available Tools
 
-> **Two authentication tiers:** Data and Image Generation tools work with either OAuth or a simple `x-app-id` API key — including the stdio transport and the Claude Desktop extension. Site Audit and Link Preview tools require OAuth (hosted HTTPS transport only), since they bill against your organization's Site Audit plan rather than a single API key.
+> **Two authentication tiers:** Data and Image Generation tools work with either OAuth or a simple `x-app-id` API key — including the stdio transport and the Claude Desktop extension. Open Graph Audit and Link Preview tools require OAuth (hosted HTTPS transport only), since they bill against your organization's plan rather than a single API key.
 
 ### OpenGraph.io Data Tools
 
@@ -231,32 +231,32 @@ All scraping/metadata tools default to the **v3** API which enables `auto_render
 
 **Language detection:** All tools send `accept_lang: auto` by default, which mirrors the request's `Accept-Language` header. Pass an explicit BCP 47 tag (e.g. `en-US`, `fr`) to override.
 
-### Site Audit & Link Preview Tools
+### Open Graph Audit & Link Preview Tools
 
-**Requires OAuth 2.1** (see [Authentication](#authentication)) and an active Site Audit plan. These tools are only available over the hosted HTTPS transport — they are not available via the `x-app-id` header or the stdio/Claude Desktop extension, since they need your organization identity, not just an API key.
+**Requires OAuth 2.1** (see [Authentication](#authentication)) and a plan that includes Open Graph Audit. These tools are only available over the hosted HTTPS transport — they are not available via the `x-app-id` header or the stdio/Claude Desktop extension, since they need your organization identity, not just an API key.
 
 | Tool Name | Description |
 |-----------|-------------|
 | **Discover Site URLs** | Crawl a domain (sitemap + link discovery) and return every page found, grouped by depth, along with your remaining monthly audit quota. |
-| **Start Site Audit** | Kick off an async, multi-page SEO/social audit. Pass an explicit `urls[]` list (from discovery, a sitemap, or a codebase route scan) or let the backend crawl the domain itself. Returns an `auditId` immediately. |
-| **Get Site Audit Status** | Poll an in-progress audit (`QUEUED` → `CRAWLING` → `SCORING` → `COMPLETE`). |
-| **Get Site Audit Report** | Retrieve the full report once complete: overall score (0–100), an AI-generated executive summary, prioritized fixes, per-page scores, and Open Graph coverage rates. |
+| **Start Open Graph Audit** | Kick off an async, multi-page SEO/social audit. Pass an explicit `urls[]` list (from discovery, a sitemap, or a codebase route scan) or let the backend crawl the domain itself. Returns an `auditId` immediately. |
+| **Get Open Graph Audit Status** | Poll an in-progress audit (`QUEUED` → `CRAWLING` → `SCORING` → `COMPLETE`). |
+| **Get Open Graph Audit Report** | Retrieve the full report once complete: overall score (0–100), an AI-generated executive summary, prioritized fixes, per-page scores, and Open Graph coverage rates. |
 | **Preview Page Audit** | Instant, synchronous single-URL quality check with score + issues. Does not consume audit quota. |
 | **Get Link Preview** | Instant, synchronous check of how a URL will render when shared — returns Facebook, Twitter/X, LinkedIn, and Google preview cards plus a quality score and fix list. Does not consume audit quota. |
-| **Delete Site Audit** | Permanently delete an audit and all of its results. Cannot be undone. |
+| **Delete Open Graph Audit** | Permanently delete an audit and all of its results. Cannot be undone. |
 
 ### Monitoring & History Tools
 
-Recurring audits, trend tracking, and change reporting. OAuth required; `setMonitoringSchedule` additionally requires the Site Audit scheduling entitlement.
+Recurring audits, trend tracking, and change reporting. OAuth required; `setMonitoringSchedule` additionally requires the Open Graph Audit scheduling entitlement.
 
 | Tool Name | Description |
 |-----------|-------------|
 | **List Websites** | Every site the organization has audited, with current score and trend against the previous run, critical issue and regression counts, known page count, and next scheduled run. Pass a `websiteId` for one in detail. |
-| **List Site Audits** | Past audits, newest first, filterable by domain, status, date range, or website. |
-| **Get Site Audit Changes** | What changed since the previous run — new, fixed, and regressed issues, pages added or removed, and the score delta — plus prioritized issue groups. A *regressed* issue is one previously verified as fixed that has come back; this is tracked across runs by durable issue identity, not by diffing two lists. |
+| **List Open Graph Audits** | Past audits, newest first, filterable by domain, status, date range, or website. |
+| **Get Open Graph Audit Changes** | What changed since the previous run — new, fixed, and regressed issues, pages added or removed, and the score delta — plus prioritized issue groups. A *regressed* issue is one previously verified as fixed that has come back; this is tracked across runs by durable issue identity, not by diffing two lists. |
 | **Get Monitoring Schedule** | A website's recurring-audit settings: frequency, anchored day and time, paused state, next run. |
 | **Set Monitoring Schedule** | Enable, change, or remove recurring audits. **Commits ongoing page-quota spend** and can trigger alert email. `enabled: false` deletes the configuration — use `paused: true` to keep it. Alert recipients are dashboard-only. |
-| **Get Connection Context** | Which organization this connection acts for, and which Site Audit features its plan allows. The organization is chosen during authorization and is what every tool defaults to. |
+| **Get Connection Context** | Which organization this connection acts for, and which Open Graph Audit features its plan allows. The organization is chosen during authorization and is what every tool defaults to. |
 
 ### Fix List Tools
 
@@ -268,7 +268,7 @@ Turn an audit into work a developer can action. OAuth required.
 | **Save Fix Items** | Record proposed changes for one page. Overwrites existing items for the same page and field. A blank or unchanged `proposedValue` is rejected — it means "remove" upstream, so use **Delete Fix Item** deliberately. |
 | **Delete Fix Item** | Permanently remove one entry. Fix items are hand-authored and are not regenerated by re-auditing. |
 | **Export Fix Items CSV** | The fix list as CSV text for handoff. PDF export is available in the dashboard only. |
-| **Email Site Audit Report** | Email the report with PDF attachments to the authenticated account's own address. Sends real email on every call and is not idempotent; the recipient cannot be chosen. |
+| **Email Open Graph Audit Report** | Email the report with PDF attachments to the authenticated account's own address. Sends real email on every call and is not idempotent; the recipient cannot be chosen. |
 
 ### Image Generation Tools
 

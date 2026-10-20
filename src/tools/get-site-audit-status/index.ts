@@ -26,7 +26,7 @@ class GetSiteAuditStatusTool extends BaseTool {
         "  getSiteAuditReport → Get the full report once status is COMPLETE";
 
     annotations = {
-        title:          "Get Site Audit Status",
+        title:          "Get Open Graph Audit Status",
         readOnlyHint:   true,
         destructiveHint: false,
         idempotentHint: true,
@@ -55,14 +55,14 @@ class GetSiteAuditStatusTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Get Site Audit Status", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Get Open Graph Audit Status", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         try {
             const { audit } = await getAuditStatus(args.auditId, this.accessToken);
             return toResult(formatAuditStatus(audit));
         } catch (error: unknown) {
             const reason = error instanceof Error ? error.message : String(error);
-            return toResult(formatError("Get Site Audit Status", reason));
+            return toResult(formatError("Get Open Graph Audit Status", reason));
         }
     }
 }

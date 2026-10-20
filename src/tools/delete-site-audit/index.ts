@@ -18,7 +18,7 @@ class DeleteSiteAuditTool extends BaseTool {
         "and delete exactly the audit they named.";
 
     annotations = {
-        title: "Delete Site Audit",
+        title: "Delete Open Graph Audit",
         readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true,
     };
 
@@ -26,7 +26,7 @@ class DeleteSiteAuditTool extends BaseTool {
     outputSchema = z.object({ auditId: z.string(), deleted: z.boolean(), alreadyGone: z.boolean() });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("Delete Site Audit", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("Delete Open Graph Audit", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             await deleteAudit(args.auditId, this.accessToken);
             return toResult(formatAuditDeleted(args.auditId, false));
@@ -35,7 +35,7 @@ class DeleteSiteAuditTool extends BaseTool {
             // Already gone is the requested end state. A 403 is not — treating
             // that as success would hide a denial and invite a retry loop.
             if (status === 404) return toResult(formatAuditDeleted(args.auditId, true));
-            return toResult(formatError("Delete Site Audit", error instanceof Error ? error.message : String(error)));
+            return toResult(formatError("Delete Open Graph Audit", error instanceof Error ? error.message : String(error)));
         }
     }
 }

@@ -19,7 +19,7 @@ class EmailSiteAuditReportTool extends BaseTool {
         "export entitlement, and is rate limited.";
 
     annotations = {
-        title: "Email Site Audit Report",
+        title: "Email Open Graph Audit Report",
         readOnlyHint: false,
         // Mail leaves the system and cannot be unsent, so clients should confirm
         // even though the recipient is pinned to the account owner.
@@ -35,11 +35,11 @@ class EmailSiteAuditReportTool extends BaseTool {
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
-        if (!this.accessToken) return toResult(formatError("Email Site Audit Report", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+        if (!this.accessToken) return toResult(formatError("Email Open Graph Audit Report", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         try {
             return toResult(formatReportEmailed(args.auditId, await emailAuditReport(args.auditId, this.accessToken)));
         } catch (error: unknown) {
-            return toResult(formatError("Email Site Audit Report", error instanceof Error ? error.message : String(error)));
+            return toResult(formatError("Email Open Graph Audit Report", error instanceof Error ? error.message : String(error)));
         }
     }
 }

@@ -61,7 +61,7 @@ class PreviewPageAuditTool extends BaseTool {
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {
         if (!this.accessToken) {
-            return toResult(formatError("Preview Page Audit", "Site Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
+            return toResult(formatError("Preview Page Audit", "Open Graph Audit requires OAuth authentication. Reconnect the OpenGraph MCP server to authorize."));
         }
         if (!this.organizationId) {
             return toResult(formatError("Preview Page Audit", "Organization ID not found in token. Reconnect the MCP server."));

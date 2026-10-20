@@ -88,7 +88,7 @@ FETCH PARAMETERS (available on most data tools):
   cache_ok / max_cache_age — control response caching (defaults: true / 5 days)
   retry / max_retries / retry_escalate — automatic retry with proxy escalation on failure
 
-SITE AUDIT TOOLS (require OAuth + Site Audit plan):
+OPEN GRAPH AUDIT TOOLS (require OAuth + a plan that includes Open Graph Audit):
   discoverSiteUrls  — Crawl a domain and return every page found, grouped by depth, plus remaining
                        monthly quota and siteContextText for AI enrichment.
   startSiteAudit    — Start the async audit. Pass urls[] for exact control; omit to let the backend
@@ -128,7 +128,7 @@ SITE AUDIT TOOLS (require OAuth + Site Audit plan):
   Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
 
 MONITORING (recurring audits over time):
-  getConnectionContext — Which organization this connection acts for, and which Site Audit features
+  getConnectionContext — Which organization this connection acts for, and which Open Graph Audit features
                        the plan allows. Call it when a result is unexpectedly empty: it separates
                        "no data" from "wrong organization". Every tool here defaults to that org.
   listWebsites      — Websites the org has audited, with current score and trend, critical issue
