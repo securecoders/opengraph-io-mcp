@@ -497,6 +497,29 @@ npm start
 The legacy SSE transport (`/sse` + `/message`) has been removed. It had no authentication and
 shared a single connection across every client.
 
+## MCP Registry & Distribution
+
+This server is published to the [Official MCP Registry](https://registry.modelcontextprotocol.io) and automatically discovered by other MCP directories.
+
+### Registry Status
+
+| Registry | Auto-Updates | Notes |
+|----------|-------------|-------|
+| **[Official MCP Registry](https://registry.modelcontextprotocol.io)** | ✅ On release | Source of truth, published via GitHub Actions |
+| **[PulseMCP](https://pulsemcp.com)** | ✅ Daily | Ingests from Official Registry |
+| **[Smithery](https://smithery.ai)** | ✅ Likely | Crawls npm automatically |
+| **[Glama](https://glama.ai)** | ✅ Likely | Aggregates from multiple sources |
+| **[MCP.so](https://mcp.so)** | ❌ Manual | One-time submission |
+
+### How Updates Propagate
+
+When a new version is released:
+1. `npm publish` pushes to npm registry
+2. GitHub Actions workflow publishes to Official MCP Registry
+3. Other directories (PulseMCP, Smithery, Glama) auto-discover within hours/days
+
+No manual intervention needed for most directories after initial listing.
+
 ## Troubleshooting
 
 - If tools aren't showing up, check that the server is running and the URL is correctly configured in Cursor
