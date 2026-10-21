@@ -49,6 +49,11 @@ interface ToolRegistration {
    * to authorize" result from execute() rather than throwing.
    */
   requiresAppId?: boolean;
+  /**
+   * Needs an OAuth session (organization identity), which a local stdio server
+   * never has, so local servers neither list nor run these.
+   */
+  requiresOAuth?: boolean;
 }
 
 const REGISTRY: Record<ToolNames, ToolRegistration> = {
@@ -64,24 +69,24 @@ const REGISTRY: Record<ToolNames, ToolRegistration> = {
   [ToolNames.INSPECT_IMAGE_SESSION]: { create: (c) => new InspectImageSessionTool(c.appId),           requiresAppId: true },
   [ToolNames.EXPORT_IMAGE_ASSET]:    { create: (c) => new ExportImageAssetTool(c.appId, c.isLocal), requiresAppId: true },
 
-  [ToolNames.DISCOVER_SITE_URLS]:    { create: (c) => new DiscoverSiteUrlsTool(c.accessToken, c.organizationId) },
-  [ToolNames.START_SITE_AUDIT]:      { create: (c) => new StartSiteAuditTool(c.accessToken, c.organizationId) },
-  [ToolNames.GET_SITE_AUDIT_STATUS]: { create: (c) => new GetSiteAuditStatusTool(c.accessToken) },
-  [ToolNames.GET_SITE_AUDIT_REPORT]: { create: (c) => new GetSiteAuditReportTool(c.accessToken) },
-  [ToolNames.LIST_SITE_AUDITS]:       { create: (c) => new ListSiteAuditsTool(c.accessToken, c.organizationId) },
-  [ToolNames.GET_SITE_AUDIT_CHANGES]: { create: (c) => new GetSiteAuditChangesTool(c.accessToken) },
-  [ToolNames.LIST_WEBSITES]:            { create: (c) => new ListWebsitesTool(c.accessToken, c.organizationId) },
-  [ToolNames.GET_MONITORING_SCHEDULE]:  { create: (c) => new GetMonitoringScheduleTool(c.accessToken, c.organizationId) },
-  [ToolNames.SET_MONITORING_SCHEDULE]:  { create: (c) => new SetMonitoringScheduleTool(c.accessToken, c.organizationId) },
-  [ToolNames.GET_CONNECTION_CONTEXT]:   { create: (c) => new GetConnectionContextTool(c.accessToken) },
-  [ToolNames.LIST_FIX_ITEMS]:           { create: (c) => new ListFixItemsTool(c.accessToken) },
-  [ToolNames.SAVE_FIX_ITEMS]:           { create: (c) => new SaveFixItemsTool(c.accessToken) },
-  [ToolNames.DELETE_FIX_ITEM]:          { create: (c) => new DeleteFixItemTool(c.accessToken) },
-  [ToolNames.EXPORT_FIX_ITEMS_CSV]:     { create: (c) => new ExportFixItemsCsvTool(c.accessToken) },
-  [ToolNames.DELETE_SITE_AUDIT]:        { create: (c) => new DeleteSiteAuditTool(c.accessToken) },
-  [ToolNames.EMAIL_SITE_AUDIT_REPORT]:  { create: (c) => new EmailSiteAuditReportTool(c.accessToken) },
-  [ToolNames.PREVIEW_PAGE_AUDIT]:    { create: (c) => new PreviewPageAuditTool(c.accessToken, c.organizationId) },
-  [ToolNames.GET_LINK_PREVIEW]:      { create: (c) => new GetLinkPreviewTool(c.accessToken, c.organizationId) },
+  [ToolNames.DISCOVER_SITE_URLS]:    { create: (c) => new DiscoverSiteUrlsTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.START_SITE_AUDIT]:      { create: (c) => new StartSiteAuditTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.GET_SITE_AUDIT_STATUS]: { create: (c) => new GetSiteAuditStatusTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.GET_SITE_AUDIT_REPORT]: { create: (c) => new GetSiteAuditReportTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.LIST_SITE_AUDITS]:       { create: (c) => new ListSiteAuditsTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.GET_SITE_AUDIT_CHANGES]: { create: (c) => new GetSiteAuditChangesTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.LIST_WEBSITES]:            { create: (c) => new ListWebsitesTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.GET_MONITORING_SCHEDULE]:  { create: (c) => new GetMonitoringScheduleTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.SET_MONITORING_SCHEDULE]:  { create: (c) => new SetMonitoringScheduleTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.GET_CONNECTION_CONTEXT]:   { create: (c) => new GetConnectionContextTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.LIST_FIX_ITEMS]:           { create: (c) => new ListFixItemsTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.SAVE_FIX_ITEMS]:           { create: (c) => new SaveFixItemsTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.DELETE_FIX_ITEM]:          { create: (c) => new DeleteFixItemTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.EXPORT_FIX_ITEMS_CSV]:     { create: (c) => new ExportFixItemsCsvTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.DELETE_SITE_AUDIT]:        { create: (c) => new DeleteSiteAuditTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.EMAIL_SITE_AUDIT_REPORT]:  { create: (c) => new EmailSiteAuditReportTool(c.accessToken), requiresOAuth: true },
+  [ToolNames.PREVIEW_PAGE_AUDIT]:    { create: (c) => new PreviewPageAuditTool(c.accessToken, c.organizationId), requiresOAuth: true },
+  [ToolNames.GET_LINK_PREVIEW]:      { create: (c) => new GetLinkPreviewTool(c.accessToken, c.organizationId), requiresOAuth: true },
 };
 
 const EMPTY_CONTEXT: ToolContext = { appId: "", organizationId: "", accessToken: "", isLocal: false };
@@ -90,10 +95,17 @@ const EMPTY_CONTEXT: ToolContext = { appId: "", organizationId: "", accessToken:
 export const toolDefinitions: Tool[] = (Object.keys(REGISTRY) as ToolNames[])
   .map((name) => REGISTRY[name].create(EMPTY_CONTEXT).toToolType());
 
+/** What a local stdio server advertises: only tools an App ID alone can run. */
+export const localToolDefinitions: Tool[] = toolDefinitions
+  .filter((tool) => !REGISTRY[tool.name as ToolNames].requiresOAuth);
+
 export function resolveTool(name: string, ctx: ToolContext): BaseTool {
   const registration = REGISTRY[name as ToolNames];
   if (!registration) {
     throw new Error(`Unknown tool: ${name}`);
+  }
+  if (registration.requiresOAuth && ctx.isLocal) {
+    throw new Error(`${name} needs the hosted server with OAuth; it is not available when running locally.`);
   }
   if (registration.requiresAppId && !ctx.isLocal && !ctx.appId) {
     throw new Error("Could not find App ID for session.");

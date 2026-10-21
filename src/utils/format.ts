@@ -406,7 +406,7 @@ export function formatMarkdown(url: string, payload: MarkdownPayload): FormatRes
 
     // Content was fetched from an arbitrary page, so anything short of a clean
     // scan is the first thing the reader needs. `unknown` matters as much as
-    // `high`: og-api fails open when the sanitizer errors, and treating that as
+    // `high`: the API fails open when the sanitizer errors, and treating that as
     // clean is exactly the case it reports `sanitizer_error` to prevent.
     const risk = ai_safety?.risk_level;
     const unsafe = ai_safety && (risk !== 'low' || ai_safety.sanitizer_error || ai_safety.content_sanitized === false);

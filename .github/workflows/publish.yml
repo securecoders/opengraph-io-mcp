@@ -6,18 +6,60 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # Required for OIDC authentication with MCP Registry
 
 env:
   MCP_PUBLISHER_VERSION: v1.8.1
   MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
 
 jobs:
-  publish:
+  # Nothing is published unless the release builds, passes its tests, matches its
+  # tag, and ships only what it should.
+  verify:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Release tag matches package version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$VERSION" ]; then
+            echo "Release tag ${GITHUB_REF_NAME} does not match package.json ${VERSION}"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build the extension
+        run: npm run build:mcpb
+
+      - name: Check package contents
+        run: node scripts/check-package.js opengraph-io-mcp.mcpb
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC authentication with MCP Registry
+    steps:
       # Pinned to commit SHAs: a moved tag cannot change what runs in the job that
-      # holds npm publish rights and the OIDC identity (#22).
+      # holds npm publish rights and the OIDC identity.
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -77,3 +119,33 @@ jobs:
           done
           echo "MCP Registry publish failed after 5 attempts"
           exit 1
+
+  # Separate from publish so the job that can write to the release never holds the
+  # publishing identity.
+  attach-extension:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build the extension
+        run: npm run build:mcpb
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" opengraph-io-mcp.mcpb --clobber --repo "${GITHUB_REPOSITORY}"

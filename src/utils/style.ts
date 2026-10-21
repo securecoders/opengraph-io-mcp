@@ -122,7 +122,7 @@ export function freshnessLabel(isCached: boolean | undefined): string {
 }
 
 /**
- * Resolve a status key (from og-api requestInfo or hybridGraph) to a
+ * Resolve a status key (from the API's requestInfo or hybridGraph) to a
  * Title Case label, with a fallback for unknown values.
  */
 export function statusLabel(key: string | undefined): string {

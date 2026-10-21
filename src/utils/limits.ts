@@ -17,7 +17,7 @@ export const CALL_REFILL_PER_SEC = 2;
 export const MAX_SUBSCRIPTIONS = 100;
 export const MAX_SUBSCRIPTION_URI_CHARS = 2048;
 
-/** Hosted sits behind one ingress; trusting none would key every client on its IP and make the limiter global. */
+/** Behind a reverse proxy, trusting none would key every client on the proxy's IP and make the limiter global. */
 export function resolveTrustProxy(): number | boolean {
     const raw = process.env.MCP_TRUST_PROXY;
     if (raw === undefined || raw === "") return 1;

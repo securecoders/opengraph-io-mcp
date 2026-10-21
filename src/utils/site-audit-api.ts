@@ -1,9 +1,9 @@
 /**
- * HTTP client for OpenGraph.io Site Audit calls via apifur-api.
+ * HTTP client for OpenGraph.io Open Graph Audit calls.
  *
  * All requests require a valid OAuth 2.1 Bearer token (the MCP access token
- * issued by apifur-api). The token is forwarded as the Authorization header
- * so apifur-api can authenticate the caller and enforce plan/tier gating.
+ * issued by OpenGraph.io). The token is forwarded as the Authorization header
+ * so the API can authenticate the caller and enforce plan/tier gating.
  *
  * Base URL is controlled by SITE_AUDIT_API_URL (defaults to production).
  */
@@ -170,7 +170,7 @@ export const discoverSiteUrls = async (
  *
  * Pass `urls` (from discoverSiteUrls) and `siteContextText` to get the same
  * enriched AI analysis the UI produces. Both are optional — if omitted,
- * og-site-audit crawls the domain internally.
+ * the audit service crawls the domain itself.
  */
 export const createAudit = async (
     organizationId: string,

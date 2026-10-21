@@ -96,7 +96,7 @@ class GetOgQueryTool extends BaseTool {
         try {
             const { url, query, responseStructure, ...options } = args;
             const raw = await querySite(url, query, responseStructure, this.appId, options);
-            // og-api returns { answer: ... } or similar — surface the whole payload
+            // The API returns { answer: ... } or similar — surface the whole payload
             const result = raw?.answer ?? raw?.result ?? raw;
             return toUntrustedResult(formatQuery(url, query, result), url);
         } catch (error: unknown) {

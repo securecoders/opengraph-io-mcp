@@ -27,7 +27,7 @@ const getAppId = (app_id?: string): string => {
 // ---------------------------------------------------------------------------
 // API version map — single place to control which version each capability
 // hits.  `extract` stays on 1.1 (no v3 GET route exists).
-// `query` stays on 1.1 until og-api's billing path check is updated for 3.0.
+// `query` stays on 1.1 until the API's billing path check is updated for 3.0.
 // ---------------------------------------------------------------------------
 
 export const API_VERSIONS = {
@@ -91,7 +91,7 @@ export interface ScreenshotOptions extends CommonOgOptions {
     exclude_selectors?: string;
     /** Whether to hide matched selectors. */
     hideSelectors?: boolean;
-    /** Delay in ms before capturing (og-api reads this as `captureDelay`). */
+    /** Delay in ms before capturing (the API reads this as `captureDelay`). */
     capture_delay?: number;
     /** Navigation timeout in ms (1000–60000). */
     navigationTimeout?: number;
@@ -175,7 +175,7 @@ export function buildQueryParams(options: Record<string, any>, appId: string): s
     for (const [key, value] of Object.entries(options)) {
         if (value === undefined || value === null) continue;
 
-        // Rename capture_delay → captureDelay (og-api reads req.query.captureDelay)
+        // Rename capture_delay → captureDelay (the API reads captureDelay)
         const paramKey = key === 'capture_delay' ? 'captureDelay' : key;
 
         // Array params: comma-join (include_tags, exclude_tags)
@@ -391,7 +391,7 @@ export const getSiteMarkdown = async (
         throw new Error(`Markdown API request failed: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`);
     }
 
-    // An og-api deployment that predates the JSON envelope still answers
+    // An API deployment that predates the JSON envelope still answers
     // text/markdown. Treat the body as prose rather than throwing on parse.
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("json")) {

@@ -21,7 +21,7 @@ async function throwFailed(action: string, response: Response): Promise<never> {
 }
 
 /**
- * Get the base URL for the og-image-agent API
+ * Get the base URL for the image generation API
  * 
  * Priority:
  * 1. OG_IMAGE_AGENT_URL — direct override (e.g. http://localhost:8000 for local dev)
@@ -306,7 +306,7 @@ export function inlineImage(file: { data: Buffer; contentType: string; format: I
 /**
  * Loads an asset only if the image session lists it, under the caller's key.
  * A bare 200 from the asset endpoint says the asset exists, not that it belongs
- * to the session the caller named; ownership itself is the image agent's to enforce.
+ * to the session the caller named.
  */
 export const getSessionAsset = async (
     sessionId: string,

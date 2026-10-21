@@ -161,6 +161,48 @@ describe("unknown tools", () => {
   });
 });
 
+// Over stdio there is no OAuth session, so the 18 Open Graph Audit and link
+// preview tools could only ever answer "reconnect". Local servers no longer list them.
+describe("tools a local server offers", () => {
+  it("lists only the tools an App ID can run", async () => {
+    const { client, cleanup } = await connect(undefined, true);
+    try {
+      const names = (await client.listTools()).tools.map((t) => t.name).sort();
+      expect(names).toEqual([
+        ToolNames.EXPORT_IMAGE_ASSET, ToolNames.GENERATE_IMAGE, ToolNames.GET_OG_DATA,
+        ToolNames.GET_OG_EXTRACT, ToolNames.GET_OG_MARKDOWN, ToolNames.GET_OG_QUERY,
+        ToolNames.GET_OG_SCRAPE_DATA, ToolNames.GET_OG_SCREENSHOT, ToolNames.INSPECT_IMAGE_SESSION,
+        ToolNames.ITERATE_IMAGE,
+      ].sort());
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+
+  it("refuses an OAuth-only tool with a reason", async () => {
+    const out = await callFor(ToolNames.START_SITE_AUDIT, { domain: "example.test" }, undefined, true);
+    expect(out.ok ? JSON.stringify(out.res) : out.message).toMatch(/hosted server with OAuth/);
+  });
+
+  it("tells a local agent those tools live on the hosted server", async () => {
+    const { client, cleanup } = await connect(undefined, true);
+    try {
+      expect(client.getInstructions()).toMatch(/RUNNING LOCALLY/);
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+
+  it("still lists every tool on the hosted server", async () => {
+    const { client, cleanup } = await connect();
+    try {
+      expect((await client.listTools()).tools).toHaveLength(Object.values(ToolNames).length);
+    } finally {
+      await cleanup().catch(() => {});
+    }
+  });
+});
+
 describe("tool call log", () => {
   it("records the tool and outcome, never the arguments", async () => {
     const spy = (await import("vitest")).vi.spyOn(console, "error").mockImplementation(() => {});

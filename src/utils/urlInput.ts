@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 const MAX_URL_LENGTH = 2048;
-/** og-site-audit's own ceiling on pages per audit. */
+/** The audit service's own ceiling on pages per audit. */
 export const MAX_AUDIT_PAGES = 500;
-/** Longer lists are fine (apifur-api trims to quota); this only bounds the payload. */
+/** Longer lists are fine (the API trims to quota); this only bounds the payload. */
 export const MAX_AUDIT_URL_LIST = 5_000;
 /** discoverSiteUrls returns homepage text unbounded; this only stops an absurd payload. */
 export const MAX_SITE_CONTEXT_CHARS = 1_000_000;
@@ -14,7 +14,7 @@ const HTTP_SCHEME = /^https?:\/\//i;
 export const httpUrl = () =>
     z.string().max(MAX_URL_LENGTH).url().regex(HTTP_SCHEME, "Must be an http:// or https:// URL.");
 
-/** Accepts a bare host (`example.com`) or an http(s) URL, matching what apifur-api takes. */
+/** Accepts a bare host (`example.com`) or an http(s) URL, matching what the API takes. */
 export const siteDomain = () =>
     z.string().min(1).max(MAX_URL_LENGTH).refine(
         (v) => toSiteUrl(v) !== null,
@@ -37,7 +37,7 @@ function toSiteUrl(value: string): URL | null {
 const bareHostname = (hostname: string): string => hostname.replace(/^www\./i, "").toLowerCase();
 
 /**
- * Mirrors apifur-api's `sameHostname` (server/controllers/siteAuditLogic.js), which
+ * Mirrors the Open Graph Audit API's same-host rule, which
  * rejects the whole audit if any URL is off-domain. Checking here first names the
  * offending URLs instead of spending a round trip to learn the same thing.
  */

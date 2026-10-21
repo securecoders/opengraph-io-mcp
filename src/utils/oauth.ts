@@ -1,7 +1,7 @@
 /**
  * OAuth 2.1 token verification for the OpenGraph MCP protected resource.
  *
- * Uses `jose` to verify RS256 JWTs issued by apifur-api against the remote
+ * Uses `jose` to verify RS256 JWTs issued by the OpenGraph.io authorization server against the remote
  * JWKS endpoint.  Key material is cached by jose's createRemoteJWKSet.
  *
  * Environment variables:
@@ -36,7 +36,7 @@ function getJwksUrl(): string {
   if (!url) {
     throw new Error(
       'OAUTH_JWKS_URL is not set. ' +
-      'Set it to the /oauth/jwks.json URL of your apifur-api instance.',
+      'Set it to the /oauth/jwks.json URL of the authorization server.',
     );
   }
   return url;
@@ -48,7 +48,7 @@ function getIssuer(): string {
   const issuer = process.env.OAUTH_ISSUER;
   if (!issuer) {
     throw new Error(
-      'OAUTH_ISSUER is not set. Set it to the exact issuer apifur-api signs with ' +
+      'OAUTH_ISSUER is not set. Set it to the exact issuer the authorization server signs with ' +
       '(its /.well-known/oauth-authorization-server "issuer").',
     );
   }
@@ -82,7 +82,7 @@ export function resetJwksCache(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Verify an RS256 JWT access token issued by apifur-api.
+ * Verify an RS256 JWT access token issued by the authorization server.
  *
  * @throws if the token is invalid, expired, or missing required claims.
  */
@@ -112,7 +112,7 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
   if (!organizationId) {
     throw new Error('Access token missing og_org_id claim');
   }
-  // apifur-api refuses a token without the mcp scope; a missing scope must not
+  // The OpenGraph.io API refuses a token without the mcp scope; a missing scope must not
   // be read here as full access.
   if (!scope.split(/\s+/).includes('mcp')) {
     throw new Error('Access token lacks the mcp scope');

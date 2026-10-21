@@ -1,29 +1,39 @@
 {
-  "name": "OpenGraph MCP",
-  "version": "1.1.0",
-  "description": "Access OpenGraph.io APIs from Claude - fetch OG/social metadata, scrape or extract content, capture screenshots, convert pages to Markdown, query sites with AI, and generate images.",
-  "author": "SecureCoders",
-  "homepage": "https://github.com/securecoders/og-mcp",
+  "manifest_version": "0.3",
+  "name": "opengraph-io-mcp",
+  "display_name": "OpenGraph.io",
+  "version": "3.1.0",
+  "description": "Fetch Open Graph and social metadata, scrape or extract page content, capture screenshots, convert pages to Markdown, ask questions about a page, and generate images with OpenGraph.io.",
+  "author": {
+    "name": "SecureCoders",
+    "url": "https://opengraph.io"
+  },
+  "homepage": "https://github.com/securecoders/opengraph-io-mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/securecoders/og-mcp"
+    "url": "https://github.com/securecoders/opengraph-io-mcp"
   },
   "license": "ISC",
-  "mcp": {
-    "command": "node",
-    "args": ["server/server-stdio.js"],
-    "env": {}
-  },
-  "inputs": [
-    {
-      "id": "APP_ID",
-      "name": "OpenGraph App ID",
-      "description": "Your OpenGraph.io API App ID. Get one at https://www.opengraph.io/",
-      "type": "string",
-      "required": true,
-      "secret": true
+  "server": {
+    "type": "node",
+    "entry_point": "server/server-stdio.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/server-stdio.js"],
+      "env": {
+        "OPENGRAPH_APP_ID": "${user_config.app_id}"
+      }
     }
-  ],
+  },
+  "user_config": {
+    "app_id": {
+      "type": "string",
+      "title": "OpenGraph.io App ID",
+      "description": "Your OpenGraph.io App ID. Get one at https://www.opengraph.io/",
+      "sensitive": true,
+      "required": true
+    }
+  },
   "tools": [
     {
       "name": "getOgData",
@@ -63,7 +73,7 @@
     },
     {
       "name": "exportImageAsset",
-      "description": "Export a generated image asset as inline base64 (or save to disk locally)"
+      "description": "Export a generated image asset inline, or save it to disk"
     }
   ]
 }

@@ -1,7 +1,7 @@
 
-/** og-api renders pages in a browser, with optional proxy retries. */
+/** The OpenGraph API renders pages in a browser, with optional proxy retries. */
 export const OG_API_TIMEOUT_MS = 120_000;
-/** apifur-api; discover crawls the site synchronously before answering. */
+/** The Open Graph Audit API; discover crawls the site synchronously before answering. */
 export const SITE_AUDIT_TIMEOUT_MS = 120_000;
 /** Image generation runs a model and can legitimately take minutes. */
 export const IMAGE_AGENT_TIMEOUT_MS = 300_000;

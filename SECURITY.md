@@ -4,8 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.1.x   | :white_check_mark: |
-| < 1.1   | :x:                |
+| 3.x     | :white_check_mark: |
+| < 3.0   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -14,7 +14,7 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 ### How to Report
 
 1. **Do NOT open a public GitHub issue** for security vulnerabilities
-2. Email security concerns to: **security@securecoders.io** (or open a private security advisory on GitHub)
+2. Open a private security advisory on GitHub (Security tab, **Report a vulnerability**), or email **security@securecoders.io**
 3. Include as much detail as possible:
    - Description of the vulnerability
    - Steps to reproduce
@@ -32,17 +32,16 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 When using this MCP server:
 
-1. **API Keys**: Store your OpenGraph.io API key securely using environment variables
-2. **Network Security**: When running in HTTP mode, ensure proper network isolation
-3. **Input Validation**: The server validates inputs, but always sanitize data in your applications
+1. **API Keys**: Keep your OpenGraph.io App ID out of shared or committed files. The CLI installer writes client configs readable by your user only, and the Claude Desktop extension marks it as sensitive so Claude Desktop stores it securely.
+2. **Prefer OAuth for the hosted server**: it avoids putting a key in any config file, and access can be revoked from your dashboard.
+3. **Web content is untrusted**: pages your agent fetches can contain instructions aimed at it. Review what an agent proposes before letting it act on your files or accounts.
 4. **Updates**: Keep the package updated to receive security patches
 
 ## Scope
 
 This security policy covers:
-- The `opengraph-io-mcp` npm package
+- The `opengraph-io-mcp` npm package and the Claude Desktop extension
 - The source code in this repository
-- Configuration and deployment guidance
 
 ## Out of Scope
 
