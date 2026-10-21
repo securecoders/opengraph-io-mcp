@@ -180,9 +180,12 @@ describe("per-session call budget", () => {
   it("does not apply to stdio, which has no session and one local user", async () => {
     const { client, cleanup } = await connect(null);
     try {
+      // An OAuth-only tool is refused locally, which is fine here: the point is
+      // that the refusal never becomes the budget's.
       for (let i = 0; i < CALL_BURST + 5; i++) {
-        const res = await client.callTool({ name: ToolNames.GET_CONNECTION_CONTEXT, arguments: {} });
-        expect(JSON.stringify(res)).not.toMatch(/Too many tool calls/);
+        const outcome = await client.callTool({ name: ToolNames.GET_CONNECTION_CONTEXT, arguments: {} })
+          .then((res) => JSON.stringify(res), (err: Error) => err.message);
+        expect(outcome).not.toMatch(/Too many tool calls/);
       }
     } finally {
       await cleanup().catch(() => {});

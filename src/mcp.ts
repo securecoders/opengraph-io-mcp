@@ -11,7 +11,7 @@ import {
     SubscribeRequestSchema,
     UnsubscribeRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { resolveTool, toolDefinitions } from "@/tools/registry";
+import { localToolDefinitions, resolveTool, toolDefinitions } from "@/tools/registry";
 import { getAuthContext } from "@/utils/sessionIdToAppId";
 import { getSessionAsset } from "@/utils/og-image-api";
 import { logEvent } from "@/utils/log";
@@ -185,16 +185,25 @@ export interface ServerOptions {
     local?: boolean;
 }
 
+const LOCAL_NOTE =
+    "RUNNING LOCALLY: this server has an App ID but no OAuth session, so the Open Graph Audit, " +
+    "monitoring, fix list and link preview tools above are not available here. To use them, " +
+    "connect to the hosted server at https://mcp.opengraph.io/mcp and sign in.";
+
+// Kept equal to package.json by tests/packaging.test.ts (rootDir keeps package.json out of reach).
+export const SERVER_NAME = "opengraph-io-mcp";
+export const SERVER_VERSION = "3.1.0";
+
 export const createServer = ({ local = false }: ServerOptions = {}) => {
     const mcpServer = new McpServer(
         {
-            name: "og-mcp-server",
-            version: "1.4.0",
+            name: SERVER_NAME,
+            version: SERVER_VERSION,
             homepage: "https://opengraph.io",
             websiteUrl: "https://opengraph.io",
         } as any,
         {
-            instructions: SERVER_INSTRUCTIONS,
+            instructions: local ? `${SERVER_INSTRUCTIONS}\n\n${LOCAL_NOTE}` : SERVER_INSTRUCTIONS,
             capabilities: {
                 prompts: {},
                 resources: { subscribe: true },
@@ -223,7 +232,7 @@ export const createServer = ({ local = false }: ServerOptions = {}) => {
     }, 10000);
     subsUpdateInterval.unref();
 
-    // Resources are dynamically fetched from the og-image-agent API
+    // Resources are dynamically fetched from the image generation API
     // No static resources - assets are accessed via the asset:// URI template
 
     server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -996,7 +1005,7 @@ apply only the ones they approve.`,
     });
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        return { tools: toolDefinitions };
+        return { tools: local ? localToolDefinitions : toolDefinitions };
     });
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
