@@ -55,7 +55,7 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction): void
   // Responses are JSON and SSE consumed by MCP clients, never rendered as a
   // document, so the browser-facing headers (CSP, frame options) buy nothing
   // here. nosniff still matters: it stops a client treating a JSON body as
-  // something executable. HSTS belongs on the ingress.
+  // something executable. HSTS is set where TLS terminates.
   res.setHeader("X-Content-Type-Options", "nosniff");
   next();
 }
@@ -113,7 +113,7 @@ function sessionCreateLimiter() {
 
 const LOOPBACK = ["127.0.0.1", "localhost", "::1"];
 
-/** Loopback unless told otherwise; the container image sets MCP_HOST=0.0.0.0. */
+/** Loopback unless told otherwise. */
 export function resolveBindHost(): string {
   return process.env.MCP_HOST || "127.0.0.1";
 }

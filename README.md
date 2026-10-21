@@ -1,7 +1,6 @@
-# OpenGraph MCP Server (og-mcp)
+# OpenGraph MCP Server
 
-
-og‑mcp is a Model‑Context‑Protocol (MCP) server that makes every OpenGraph.io ( https://opengraph.io ) API endpoint available to AI agents (e.g. Anthropic Claude, Cursor, LangGraph) through the standard MCP interface.
+`opengraph-io-mcp` is a Model Context Protocol (MCP) server that makes the [OpenGraph.io](https://opengraph.io) API available to AI agents such as Claude, Cursor and LangGraph through the standard MCP interface.
 
 Why?  If you already use OpenGraph.io to unfurl links, scrape HTML, extract article text, or capture screenshots, you can now give the same capabilities to your autonomous agents without exposing raw API keys.
 
@@ -31,7 +30,7 @@ Supported clients: `cursor`, `claude-desktop`, `windsurf`, `vscode`, `zed`, `jet
 
 ### Claude Desktop Extension
 
-For Claude Desktop users, you can also download the `.mcpb` extension for one-click installation from the [Releases page](https://github.com/securecoders/og-mcp/releases).
+For Claude Desktop, download the `.mcpb` extension from the [Releases page](https://github.com/securecoders/opengraph-io-mcp/releases) and open it. Claude Desktop asks for your App ID once and stores it securely.
 
 
 
@@ -178,7 +177,7 @@ All scraping/metadata tools default to the **v3** API which enables `auto_render
 
 ### Open Graph Audit & Link Preview Tools
 
-**Requires OAuth 2.1** (see [Authentication](#authentication)) and a plan that includes Open Graph Audit. These tools are only available over the hosted HTTPS transport — they are not available via the `x-app-id` header or the stdio/Claude Desktop extension, since they need your organization identity, not just an API key.
+**Requires OAuth 2.1** (see [Authentication](#authentication)) and a plan that includes Open Graph Audit. These tools are available on the hosted server only. They are not listed when you run the server locally (the CLI installer or the Claude Desktop extension) or connect with the `x-app-id` header, since they need your organization identity, not just an API key.
 
 | Tool Name | Description |
 |-----------|-------------|
@@ -226,7 +225,7 @@ Turn an audit into work a developer can action. OAuth required.
 
 ## Image Generation
 
-The og-mcp server includes powerful AI-driven image generation capabilities, perfect for creating social media cards, architecture diagrams, icons, and more.
+The server includes powerful AI-driven image generation capabilities, perfect for creating social media cards, architecture diagrams, icons, and more.
 
 ### Generate Image
 
@@ -347,158 +346,60 @@ In addition to tools, the server exposes named **prompts** — pre-built, multi-
 
 ## How it works
 
-![og-mcp Architecture Diagram](https://raw.githubusercontent.com/securecoders/opengraph-io-mcp/cfa5a37fc64b99f4ee638f3a6b90e7cf4d222362/how-it-works.png)
-*<sup>Diagram generated with og-mcp's image generation tools</sup>*
+![OpenGraph MCP architecture diagram](https://raw.githubusercontent.com/securecoders/opengraph-io-mcp/main/docs/assets/how-it-works.png)
+*<sup>Diagram generated with this server's image generation tools</sup>*
 
-The og-mcp server acts as a bridge between AI clients (like Claude or other LLMs) and the OpenGraph.io API:
+The server acts as a bridge between AI clients (like Claude or other LLMs) and the OpenGraph.io API:
 
 1. AI client makes a tool call to one of the available MCP functions
-2. og-mcp server receives the request and formats it for the OpenGraph.io API
+2. The server receives the request and formats it for the OpenGraph.io API
 3. OpenGraph.io processes the request and returns data
-4. og-mcp transforms the response into a format suitable for the AI client
+4. The server transforms the response into a format suitable for the AI client
 5. AI client receives the structured data ready for use
 
 This abstraction prevents exposing API keys directly to the AI while providing full access to OpenGraph.io capabilities.
 
-## Setup and Running
+## Running locally
 
-1. Clone this repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Build the TypeScript code:
-   ```
-   npm run build
-   ```
-4. Start the server:
-   ```
-   npm start
-   ```
+The CLI installer and the Claude Desktop extension set this up for you. To configure a client by hand, run the package with `npx` and pass your [OpenGraph.io App ID](https://www.opengraph.io/):
 
-The server will run on port 3010 by default (configurable via PORT environment variable).
-
-## Configuration
-
-### OAuth 2.1 (hosted HTTP server)
-
-When running the Streamable HTTP server (`npm start`), set these env vars:
-
-```env
-# Required: URL of the apifur-api JWKS endpoint
-OAUTH_JWKS_URL=https://dashboard-api.opengraph.io/oauth/jwks.json
-
-# Required: the exact issuer apifur-api signs with (its /.well-known/oauth-authorization-server
-# "issuer"). Matched character for character; without it every bearer token is refused.
-OAUTH_ISSUER=https://dashboard-api.opengraph.io
-
-# Optional: Expected audience claim (default: https://mcp.opengraph.io/mcp)
-OAUTH_AUDIENCE=https://mcp.opengraph.io/mcp
-
-# Optional: Override the canonical MCP resource URL returned in 401 headers
-MCP_RESOURCE_URL=https://mcp.opengraph.io/mcp
+```json
+{
+  "mcpServers": {
+    "opengraph": {
+      "command": "npx",
+      "args": ["-y", "opengraph-io-mcp"],
+      "env": { "OPENGRAPH_APP_ID": "YOUR_OPENGRAPH_APP_ID" }
+    }
+  }
+}
 ```
 
-When `OAUTH_JWKS_URL` or `OAUTH_ISSUER` is not set, bearer tokens are refused.
-
-### Network
-
-```env
-# Interface to listen on (default 127.0.0.1). The Docker image sets 0.0.0.0.
-MCP_HOST=127.0.0.1
-
-# Host header values /mcp accepts. Unset: only localhost names while bound to loopback,
-# which blocks DNS rebinding; no check when bound to all interfaces.
-MCP_ALLOWED_HOSTS=mcp.example.com
-
-# Browser origins allowed to call the server from another site. Unset: none. Desktop and CLI
-# clients send no Origin and are unaffected; a client running in a browser page (such as
-# MCP Inspector's direct mode) needs its origin listed here.
-MCP_ALLOWED_ORIGINS=https://app.example.com
-```
-
-### Behind a proxy
-
-New sessions are rate limited per client IP. Set `MCP_TRUST_PROXY` to the number of proxies in front of the server so the limiter sees the real client address:
-
-```env
-# Default 1 (one ingress or load balancer). Use false when clients connect directly,
-# or a client could set X-Forwarded-For itself and slip past the limit.
-MCP_TRUST_PROXY=1
-```
-
-### Logs
-
-The HTTP server writes one JSON line per security event to stderr: `auth.rejected` (with a reason),
-`auth.legacy_app_id`, `session.opened`, `session.closed`, `session.forbidden`, `session.refused`,
-`session.rate_limited`, `session.credential_expired`, `server.error` and `tool.call` (tool name and
-outcome only). No line ever contains an API key, token or tool argument; keys appear as a 12 character
-fingerprint. Events anyone can trigger without a credential are capped at five per address per minute,
-with the number dropped reported on the next line.
-
-### x-app-id fallback / local dev
-
-Omit the OAuth env vars and use a static App ID instead:
-
-```env
-OPENGRAPH_APP_ID=your_app_id_here
-# or
-APP_ID=your_app_id_here
-```
-
-Over HTTP, an `x-app-id` header is accepted only when the server opts in:
-
-```env
-MCP_ALLOW_LEGACY_APP_ID=true
-```
-
-It is off by default because the header is an unverified claim of identity. The stdio transport and the Claude Desktop extension do not use it and are unaffected.
-
-### Stdio transport
-
-For command-line usage pass the App ID directly:
+Or from a shell, after `npm install -g opengraph-io-mcp`:
 
 ```bash
 opengraph-io-mcp --app-id YOUR_APP_ID
 ```
 
-## Transport Options
+Running locally gives you the data and image generation tools. Open Graph Audit and Link Preview tools need OAuth, so use the hosted server for those (see [Client Configuration](#client-configuration)).
 
-### Stdio Transport (Recommended)
-
-For command-line usage and npm global installation, the server can be run with stdio transport:
-
-```
-npm run start:stdio
-```
-
-You can pass the OpenGraph API key directly via command-line argument:
-
-```
-npm run start:stdio -- --app-id YOUR_APP_ID
-```
-
-When installed globally:
-
-```
-opengraph-io-mcp --app-id YOUR_APP_ID
-```
-
-This mode allows the server to be invoked directly by other applications that use MCP.
-
-### Streamable HTTP Transport
-
-This method runs a web server that can be accessed over HTTP:
-
-```
-npm start
-```
-
-The legacy SSE transport (`/sse` + `/message`) has been removed. It had no authentication and
-shared a single connection across every client.
+| Setting | Purpose |
+|---|---|
+| `OPENGRAPH_APP_ID` (or `APP_ID`) | Your OpenGraph.io App ID. `--app-id` on the command line does the same. |
+| `MCP_EXPORT_DIR` | Folder exported images are saved into (default `~/Downloads/opengraph-mcp`). |
 
 ## Troubleshooting
 
-- If tools aren't showing up, check that the server is running and the URL is correctly configured in Cursor
-- Check the server logs for any connection or authorization issues
-- Verify that Claude has been instructed to use the specific tools by name 
+- **Tools don't show up:** restart your client after changing its config, and check that the App ID is set. With the hosted server, finish the browser sign in when prompted.
+- **Open Graph Audit tools are missing:** they are only offered by the hosted server with OAuth.
+- **The agent doesn't use a tool:** ask for it by name, for example "use getOgMarkdown on this page".
+
+## Contributing
+
+```bash
+npm install
+npm run build
+npm test
+```
+
+Node 24 is required (see `.nvmrc`). Tests live in `tests/`. See `CLAUDE.md` for how tools are registered.

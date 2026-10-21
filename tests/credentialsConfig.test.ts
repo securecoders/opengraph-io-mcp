@@ -159,7 +159,7 @@ describe("#28 bind address and Host header", () => {
     expect(await get("/mcp", "localhost")).toBe(403);
   });
 
-  it("does not check the Host on all interfaces with no list, as a public deployment behind an ingress", async () => {
+  it("does not check the Host on all interfaces with no list", async () => {
     process.env.MCP_HOST = "0.0.0.0";
     delete process.env.MCP_ALLOWED_HOSTS;
     await start();

@@ -4,7 +4,7 @@ import StartSiteAuditTool from "@/tools/start-site-audit";
 import GetOgDataTool from "@/tools/get-og-data";
 import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
 
-// #31 (scheme), #27 (page bound) and #20 (URLs under the audited domain).
+// Scheme, page bound and URLs under the audited domain.
 // apifur-api enforces all three for audits; checking here first refuses a
 // non-http URL on every tool and names off-domain URLs instead of a bare 400.
 
