@@ -60,7 +60,7 @@ describe("resources/subscribe", () => {
   });
 });
 
-// #19: an asset read used to call the image agent with no app id at all, so
+// An asset read used to call the image agent with no app id at all, so
 // over HTTP it always ran as the server's own OPENGRAPH_APP_ID.
 describe("resources/read on an HTTP session", () => {
   const ASSET_ID = "22222222-2222-4222-8222-222222222222";

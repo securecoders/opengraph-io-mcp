@@ -111,7 +111,7 @@ describe("CORS", () => {
     expect(res.headers["access-control-allow-headers"]).toContain("MCP-Session-Id");
   });
 
-  // #38: an unset allowlist used to reflect any origin with credentials and
+  // An unset allowlist used to reflect any origin with credentials and
   // expose the session id to it. It now allows no origin at all.
   it("allows no origin while MCP_ALLOWED_ORIGINS is unset", async () => {
     delete process.env.MCP_ALLOWED_ORIGINS;

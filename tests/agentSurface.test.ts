@@ -86,7 +86,7 @@ describe("third-party page content is marked untrusted", () => {
   });
 });
 
-describe("#16 the site audit prompt", () => {
+describe("the site audit prompt", () => {
   async function prompt(domain: string) {
     const { client, cleanup } = await connect();
     try {
@@ -119,7 +119,7 @@ describe("#16 the site audit prompt", () => {
   });
 });
 
-describe("#39 image type comes from the bytes", () => {
+describe("image type comes from the bytes", () => {
   it.each([
     [PNG, "PNG"],
     [Buffer.from([0xff, 0xd8, 0xff, 0xe0]), "JPEG"],
@@ -204,7 +204,7 @@ describe("exportImageAsset", () => {
   });
 });
 
-describe("#35 the export folder", () => {
+describe("the export folder", () => {
   let dir: string;
   let base: string;
   beforeEach(async () => {

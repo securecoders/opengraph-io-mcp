@@ -5,7 +5,7 @@ import GetOgDataTool from "@/tools/get-og-data";
 import DiscoverSiteUrlsTool from "@/tools/discover-site-urls";
 
 // Scheme, page bound and URLs under the audited domain.
-// apifur-api enforces all three for audits; checking here first refuses a
+// The Open Graph Audit API enforces all three; checking here first refuses a
 // non-http URL on every tool and names off-domain URLs instead of a bare 400.
 
 const guard = globalThis.fetch;

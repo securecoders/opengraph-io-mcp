@@ -24,7 +24,7 @@ function makeRes() {
   };
 }
 
-describe("#36 legacy x-app-id", () => {
+describe("legacy x-app-id", () => {
   it("is off unless MCP_ALLOW_LEGACY_APP_ID is true", () => {
     delete process.env.MCP_ALLOW_LEGACY_APP_ID;
     expect(legacyAppIdAllowed()).toBe(false);
@@ -58,7 +58,7 @@ describe("#36 legacy x-app-id", () => {
   );
 });
 
-describe("#37 the caller's app_id cannot be overridden by an option", () => {
+describe("the caller's app_id cannot be overridden by an option", () => {
   it("keeps the credential when options carry app_id", () => {
     const qs = new URLSearchParams(buildQueryParams({ app_id: "someone-else", full_render: true }, KEY));
     expect(qs.getAll("app_id")).toEqual([KEY]);
@@ -66,7 +66,7 @@ describe("#37 the caller's app_id cannot be overridden by an option", () => {
   });
 });
 
-describe("#17 the image agent app_id is encoded", () => {
+describe("the image agent app_id is encoded", () => {
   it("cannot add or replace query parameters", () => {
     const url = new URL(withAppId("https://agent.test/sessions?x=1", `${KEY}&admin=1`));
     expect(url.searchParams.get("app_id")).toBe(`${KEY}&admin=1`);
@@ -75,7 +75,7 @@ describe("#17 the image agent app_id is encoded", () => {
   });
 });
 
-describe("#23 service base URLs", () => {
+describe("service base URLs", () => {
   it("falls back to the default when unset", () => {
     delete process.env.TEST_SERVICE_URL;
     expect(serviceUrl("TEST_SERVICE_URL", "https://default.test")).toBe("https://default.test");
@@ -105,13 +105,13 @@ describe("#23 service base URLs", () => {
     expect(serviceUrl("TEST_SERVICE_URL", "https://default.test")).toBe("https://api.test");
   });
 
-  it("is what the og-api client uses", () => {
+  it("is what the API client uses", () => {
     process.env.OG_BASE_URL = "http://attacker.test";
     expect(() => getBaseUrl()).toThrow(/OG_BASE_URL/);
   });
 });
 
-describe("#28 bind address and Host header", () => {
+describe("bind address and Host header", () => {
   let server: Server;
   let port: number;
 

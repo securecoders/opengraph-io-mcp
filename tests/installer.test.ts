@@ -5,7 +5,7 @@ import * as path from "path";
 // Importing used to run the installer (and process.exit) as a side effect.
 import { createBackup, install, readConfig, writeConfig } from "@/installer";
 
-// #42: the installer wrote the user's App ID into client configs and backups
+// The installer wrote the user's App ID into client configs and backups
 // with default permissions, and replaced an unparsable config with an empty one.
 
 const KEY = "11111111-1111-4111-8111-111111111111";

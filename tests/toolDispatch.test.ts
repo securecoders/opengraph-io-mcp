@@ -129,7 +129,7 @@ describe("credential guard by tool family", () => {
     expect(out.ok ? JSON.stringify(out.res) : out.message).not.toMatch(APP_ID_ERROR);
   });
 
-  // #43: local used to be inferred from a missing session id, so any HTTP request
+  // Local used to be inferred from a missing session id, so any HTTP request
   // that lacked one got stdio's privileges. It is now set only by the stdio entrypoint.
   it("does not treat an HTTP server with no session id as local", async () => {
     const out = await callFor(ToolNames.GET_OG_DATA, { url: "https://example.test" });

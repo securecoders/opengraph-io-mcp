@@ -18,7 +18,7 @@ import {
 } from "@/utils/limits";
 import { ToolNames } from "@/tools/constants";
 
-// #30: nothing bounded how many sessions, subscriptions or calls one client could
+// Nothing bounded how many sessions, subscriptions or calls one client could
 // make. Each of these would have run unbounded before.
 
 function entry(owner: string, lastSeenAt: number, onClose?: () => void, ip?: string) {

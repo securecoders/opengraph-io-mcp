@@ -256,7 +256,7 @@ describe("session creation is reserved for initialize", () => {
   });
 });
 
-// The cross-shape case is what issue #29 actually describes: a legacy x-app-id
+// The cross-shape case: a legacy x-app-id
 // request presenting the app id of an OAuth session's subject. ownerKey
 // namespaces the two, so they can never collide — but that was only pinned as a
 // unit test on ownerKey itself, never through a handler.
@@ -321,7 +321,7 @@ describe("resolveIdleMs", () => {
   });
 });
 
-// #34: the stored context held the opener's raw bearer token for as long as the
+// The stored context held the opener's raw bearer token for as long as the
 // session lived. It is now dropped once the token expires; the session itself
 // survives, so a client that refreshes carries on without re-initializing.
 describe("credential expiry", () => {
@@ -375,7 +375,7 @@ describe("bearer sessions", () => {
   });
 });
 
-// #44: nothing recorded who was refused, who opened or lost a session, or which
+// Nothing recorded who was refused, who opened or lost a session, or which
 // tools ran. Each event is one JSON line on stderr, with no key or token in it.
 describe("security events", () => {
   function events(spy: any): any[] {

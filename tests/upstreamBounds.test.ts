@@ -12,7 +12,7 @@ import { deleteFixItem, getAuditStatus, getSchedule } from "@/utils/site-audit-a
 import { createSession, getSession } from "@/utils/og-image-api";
 import GetSiteAuditStatusTool from "@/tools/get-site-audit-status";
 
-// #33, #45, #40 and #21 — the bounds on every call this server makes to an
+// The bounds on every call this server makes to an
 // OpenGraph service.
 
 const guard = globalThis.fetch;
@@ -37,7 +37,7 @@ function stubFetch(route: { ok?: boolean; status?: number; body?: unknown; raw?:
   }) as unknown as typeof fetch;
 }
 
-describe("#33 timeouts", () => {
+describe("timeouts", () => {
   it("abandons a request that outlives its timeout", async () => {
     globalThis.fetch = ((_: unknown, init: any) => new Promise((_resolve, reject) => {
       init.signal.addEventListener("abort", () => reject(init.signal.reason));
@@ -57,8 +57,8 @@ describe("#33 timeouts", () => {
   });
 
   it.each([
-    ["og-api", () => scrapeSite("https://x.test/", "key")],
-    ["apifur-api", () => getAuditStatus("a1", "tok")],
+    ["the OpenGraph API", () => scrapeSite("https://x.test/", "key")],
+    ["the Open Graph Audit API", () => getAuditStatus("a1", "tok")],
     ["image agent", () => createSession("s", "key")],
   ])("%s calls carry an abort signal", async (_name, call) => {
     stubFetch({ body: { sessionId: "s", audit: {} } });
@@ -67,7 +67,7 @@ describe("#33 timeouts", () => {
   });
 });
 
-describe("#33 response size cap", () => {
+describe("response size cap", () => {
   it("refuses a response whose declared length is over the cap, without reading it", async () => {
     let read = false;
     const res = new Response(new ReadableStream({ pull() { read = true; } }), {
@@ -93,7 +93,7 @@ describe("#33 response size cap", () => {
   });
 });
 
-describe("#45 failed og-api responses are errors, not results", () => {
+describe("failed API responses are errors, not results", () => {
   it.each([
     ["scrapeSite", () => scrapeSite("https://x.test/", "key")],
     ["getScreenshotUrl", () => getScreenshotUrl("https://x.test/", "key")],
@@ -104,7 +104,7 @@ describe("#45 failed og-api responses are errors, not results", () => {
   });
 });
 
-describe("#40 upstream error text", () => {
+describe("upstream error text", () => {
   it("relays a structured refusal", () => {
     expect(safeUpstreamMessage(403, { error: { message: "User is not a member of this organization" } }))
       .toBe("User is not a member of this organization");
@@ -149,7 +149,7 @@ describe("#40 upstream error text", () => {
     expect(out.length).toBeLessThanOrEqual(301);
   });
 
-  it("never echoes a raw body from og-api", async () => {
+  it("never echoes a raw body from the API", async () => {
     stubFetch({ ok: false, status: 502, raw: "<html><body>nginx upstream 10.1.2.3</body></html>", contentType: "text/html" });
     const err = await extractHtmlElements("https://x.test/", ["h1"], "key").catch((e) => e);
     expect(err.message).toMatch(/502/);
@@ -177,7 +177,7 @@ describe("#40 upstream error text", () => {
   });
 });
 
-describe("#21 IDs are encoded into request paths", () => {
+describe("IDs are encoded into request paths", () => {
   it("cannot re-route an audit request with a crafted fix item id", async () => {
     stubFetch({ status: 204, raw: "" });
     await deleteFixItem("a1", "../../websites/w1/schedule", "tok");
