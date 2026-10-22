@@ -4,7 +4,23 @@
   "title": "OpenGraph.io MCP Server",
   "description": "Fetch web/social data, screenshots, scrape/extract content, generate images, audit SEO & links.",
   "version": "3.2.1",
-  "homepage": "https://opengraph.io",
+  "websiteUrl": "https://opengraph.io",
+  "icons": [
+    {
+      "src": "https://dashboard.opengraph.io/opengraph-logo-set/opengraph-icon-512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    },
+    {
+      "src": "https://dashboard.opengraph.io/opengraph-logo-set/opengraph-icon-master.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/securecoders/opengraph-io-mcp",
     "source": "github"
@@ -16,7 +32,15 @@
       "version": "3.2.1",
       "transport": {
         "type": "stdio"
-      }
+      },
+      "environmentVariables": [
+        {
+          "name": "OPENGRAPH_APP_ID",
+          "description": "Your OpenGraph.io App ID. Get one at https://www.opengraph.io/",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
     }
   ],
   "remotes": [
