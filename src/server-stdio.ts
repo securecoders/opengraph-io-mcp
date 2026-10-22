@@ -51,7 +51,6 @@ if (isMainModule) {
 
   // Main function to run the server
   async function run() {
-    // console.log("Starting og-mcp server with stdio transport...");
     
     // Create and connect the stdio transport
     const transport = new StdioServerTransport();
@@ -59,7 +58,6 @@ if (isMainModule) {
     
     // Handle server close
     server.onclose = async () => {
-      // console.log("Server closing...");
       await cleanup();
       await server.close();
     };

@@ -32,5 +32,10 @@ locally over stdio with their App ID, or connect to the hosted server with OAuth
 
 ## Versions
 
-`package.json`, `server.json`, `extension/manifest.json` and `SERVER_VERSION` in `src/mcp.ts` carry the
-same version; `tests/packaging.test.ts` fails if they differ.
+`package.json`, `server.json`, `extension/manifest.json`, `.cursor-plugin/plugin.json` and
+`SERVER_VERSION` in `src/mcp.ts` carry the same version; `tests/packaging.test.ts` fails if they differ.
+
+## Cursor plugin
+
+`.cursor-plugin/plugin.json`, `mcp.json` and `assets/logo.svg` are the Cursor Marketplace plugin. It
+points Cursor at the hosted server, which signs the user in with OAuth.

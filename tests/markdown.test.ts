@@ -87,7 +87,7 @@ describe("markdown request building", () => {
 
 describe("response handling", () => {
   it("falls back to prose when the API answers text/markdown", async () => {
-    // An og-api deployment predating the JSON envelope. Parsing must not throw.
+    // An API deployment predating the JSON envelope. Parsing must not throw.
     stubFetch("# Just markdown\n\ntext", "text/markdown");
     const out = await getSiteMarkdown("https://x.test/", "key", {});
     expect(out.markdown).toContain("Just markdown");
@@ -159,7 +159,7 @@ describe("markdown formatting", () => {
   });
 
   it("warns when the sanitizer failed open, not just on high risk", () => {
-    // og-api fails open on a sanitizer error and reports risk_level 'unknown'
+    // The API fails open on a sanitizer error and reports risk_level 'unknown'
     // with sanitizer_error set. Rendering that identically to a clean scan
     // would hide from the agent that the scan it asked for never ran.
     const out = formatMarkdown("https://x.test/page", {
@@ -215,7 +215,7 @@ describe("tool contract", () => {
   });
 
   it("no longer carries the stale auto_render warning", () => {
-    // auto_render has applied to the markdown route since og-api 30cce97; the old
+    // auto_render has applied to the markdown route for some time; the old
     // text pushed agents into paying for full_render they did not need.
     expect(new GetOgMarkdownTool().description).not.toMatch(/auto_render does not apply/i);
   });

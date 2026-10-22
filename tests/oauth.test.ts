@@ -163,7 +163,7 @@ describe("verifyAccessToken — time and addressing", () => {
       .rejects.toThrow();
   });
 
-  // #25: an unset OAUTH_ISSUER used to drop the iss check entirely, so any
+  // An unset OAUTH_ISSUER used to drop the iss check entirely, so any
   // issuer whose key the JWKS served was accepted. It now refuses the token.
   it("refuses every token when OAUTH_ISSUER is unset, rather than skipping the check", async () => {
     delete process.env.OAUTH_ISSUER;
@@ -202,7 +202,7 @@ describe("verifyAccessToken — required claims", () => {
       .rejects.toThrow(/og_org_id/);
   });
 
-  // #48: a token with no scope used to be read as mcp-scoped. apifur-api refuses
+  // A token with no scope used to be read as mcp-scoped. The API refuses
   // such a token for MCP, so this server must too.
   it("refuses a token with no scope", async () => {
     await expect(verifyAccessToken(await sign({ scope: undefined }))).rejects.toThrow(/mcp scope/);

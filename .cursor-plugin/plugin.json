@@ -1,0 +1,14 @@
+{
+  "name": "opengraph-io",
+  "displayName": "OpenGraph.io",
+  "version": "3.2.1",
+  "description": "Give Cursor live access to the web: Open Graph metadata, page content as Markdown, screenshots, AI image generation and full Open Graph Audits, powered by OpenGraph.io.",
+  "author": {
+    "name": "OpenGraph.io",
+    "email": "support@opengraph.io"
+  },
+  "homepage": "https://opengraph.io",
+  "license": "ISC",
+  "keywords": ["opengraph", "open-graph", "seo", "link-preview", "scraping", "screenshots", "markdown", "image-generation", "mcp"],
+  "logo": "assets/logo.svg"
+}

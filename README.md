@@ -82,6 +82,8 @@ If you prefer the config file (`~/Library/Application Support/Claude/claude_desk
 
 ### Cursor
 
+Install the **OpenGraph.io** plugin from the Cursor Marketplace, or add the server yourself.
+
 Config location: `~/.cursor/mcp.json`
 
 ```json
