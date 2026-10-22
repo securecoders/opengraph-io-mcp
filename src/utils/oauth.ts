@@ -16,8 +16,8 @@ import { serviceUrl } from '@/utils/serviceUrl';
 export interface OAuthClaims {
   /** Token subject (sub) — the user the session belongs to */
   subject:        string;
-  /** ApiKey.key — used for standard API billing (og_app_id) */
-  appId:          string;
+  /** ApiKey.id (og_app_id) — not the key; resolveAppKey trades it for one */
+  apiKeyId:       string;
   /** Organization UUID — used for marketing-tool billing (og_org_id) */
   organizationId: string;
   /** Space-separated scope string */
@@ -99,14 +99,14 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
   });
 
   const subject        = typeof payload.sub       === 'string' ? payload.sub       : '';
-  const appId          = typeof payload.og_app_id === 'string' ? payload.og_app_id : '';
+  const apiKeyId       = typeof payload.og_app_id === 'string' ? payload.og_app_id : '';
   const organizationId = typeof payload.og_org_id === 'string' ? payload.og_org_id : '';
   const scope          = typeof payload.scope     === 'string' ? payload.scope     : '';
 
   if (!subject) {
     throw new Error('Access token missing sub claim');
   }
-  if (!appId) {
+  if (!apiKeyId) {
     throw new Error('Access token missing og_app_id claim');
   }
   if (!organizationId) {
@@ -119,5 +119,5 @@ export async function verifyAccessToken(jwt: string): Promise<OAuthClaims> {
   }
 
   const expiresAt = typeof payload.exp === 'number' ? payload.exp * 1000 : undefined;
-  return { subject, appId, organizationId, scope, expiresAt };
+  return { subject, apiKeyId, organizationId, scope, expiresAt };
 }

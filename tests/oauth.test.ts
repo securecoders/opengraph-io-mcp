@@ -90,7 +90,7 @@ describe("verifyAccessToken — the happy path", () => {
     const claims = await verifyAccessToken(await sign());
     expect(claims).toEqual({
       subject: "user-1",
-      appId: "key-a",
+      apiKeyId: "key-a",
       organizationId: "org-1",
       scope: "mcp",
       expiresAt: expect.any(Number),

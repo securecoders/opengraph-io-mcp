@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { type Request, type Response } from "express";
 import { createServer } from "../mcp.js";
 import { setAuthContext, deleteAppId, type AuthContext } from "@/utils/sessionIdToAppId";
-import { verifyAccessToken } from "@/utils/oauth";
+import { verifyAccessToken, type OAuthClaims } from "@/utils/oauth";
+import { resolveAppKey, AppKeyRejectedError } from "@/utils/appKey";
 import { ownerKey } from "@/utils/sessionOwner";
 import { MAX_SESSIONS, MAX_SESSIONS_PER_IP, MAX_SESSIONS_PER_OWNER } from "@/utils/limits";
 import { keyFingerprint, logEvent, logSampled, principalForLog } from "@/utils/log";
@@ -156,22 +157,35 @@ export async function extractAuth(req: Request): Promise<AuthContext | null> {
 
   if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
     const rawToken = authorization.slice(7).trim();
+    let claims: OAuthClaims;
     try {
-      const claims = await verifyAccessToken(rawToken);
-      return {
-        subject:        claims.subject,
-        appId:          claims.appId,
-        organizationId: claims.organizationId,
-        scope:          claims.scope,
-        accessToken:    rawToken,
-        expiresAt:      claims.expiresAt,
-      };
+      claims = await verifyAccessToken(rawToken);
     } catch (err: unknown) {
       // jose's error codes (ERR_JWT_EXPIRED and so on) name the failure without the token.
       const code = (err as { code?: unknown })?.code;
       authFailures.set(req, typeof code === "string" ? code : String((err as Error)?.message ?? err).slice(0, 80));
       return null;
     }
+
+    // Only a refusal of this token is a 401. An outage or misconfiguration
+    // throws through to a 503, so clients are not sent back through OAuth.
+    let appId: string;
+    try {
+      appId = await resolveAppKey(rawToken, claims.apiKeyId, claims.organizationId);
+    } catch (err: unknown) {
+      if (!(err instanceof AppKeyRejectedError)) throw err;
+      authFailures.set(req, "app_key_rejected");
+      return null;
+    }
+
+    return {
+      subject:        claims.subject,
+      appId,
+      organizationId: claims.organizationId,
+      scope:          claims.scope,
+      accessToken:    rawToken,
+      expiresAt:      claims.expiresAt,
+    };
   }
 
   const legacyAppId = req.headers["x-app-id"] as string | undefined;

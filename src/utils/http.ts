@@ -5,6 +5,8 @@ export const OG_API_TIMEOUT_MS = 120_000;
 export const SITE_AUDIT_TIMEOUT_MS = 120_000;
 /** Image generation runs a model and can legitimately take minutes. */
 export const IMAGE_AGENT_TIMEOUT_MS = 300_000;
+/** The account API answers a key lookup from its database; every OAuth request can wait on it. */
+export const ACCOUNT_API_TIMEOUT_MS = 10_000;
 
 export const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
