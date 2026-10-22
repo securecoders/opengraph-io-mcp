@@ -4,6 +4,11 @@ vi.mock("@/utils/oauth", () => ({
   verifyAccessToken: vi.fn(),
 }));
 
+vi.mock("@/utils/appKey", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/appKey")>()),
+  resolveAppKey: vi.fn(async (_token: string, apiKeyId: string) => `key-for-${apiKeyId}`),
+}));
+
 // handlePost's new-session branch is the only caller. Mocking it is what lets
 // the leak test below assert the server is never built for a request the
 // transport would reject anyway.
@@ -12,6 +17,7 @@ vi.mock("../src/mcp.js", () => ({
 }));
 
 import { verifyAccessToken } from "@/utils/oauth";
+import { resolveAppKey, AppKeyRejectedError } from "@/utils/appKey";
 import { createServer } from "../src/mcp.js";
 import { handlePost, handleGet, handleDelete, sessions, resolveIdleMs, sweepSessions, keyFingerprint } from "@/http/handlers";
 import { getAuthContext, setAuthContext } from "@/utils/sessionIdToAppId";
@@ -67,7 +73,7 @@ describe.each([
 
   it("rejects a valid token belonging to a different principal", async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-2", appId: "key-b", organizationId: "org-1", scope: "mcp",
+      subject: "user-2", apiKeyId: "key-b", organizationId: "org-1", scope: "mcp",
     });
     const res = makeRes();
     await handler(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
@@ -87,7 +93,7 @@ describe.each([
 
   it("serves the owner", async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-1", appId: "key-a", organizationId: "org-1", scope: "mcp",
+      subject: "user-1", apiKeyId: "key-a", organizationId: "org-1", scope: "mcp",
     });
     const res = makeRes();
     await handler(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
@@ -185,7 +191,7 @@ describe("unknown session ids", () => {
     "%s answers 404 to an authenticated caller so the client re-initializes",
     async (_n, handler) => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
-        subject: "user-1", appId: "key-a", organizationId: "org-1", scope: "mcp",
+        subject: "user-1", apiKeyId: "key-a", organizationId: "org-1", scope: "mcp",
       });
       const res = makeRes();
       await handler(makeReq({ "mcp-session-id": "nope", authorization: "Bearer t" }), res as any);
@@ -206,7 +212,7 @@ describe("unknown session ids", () => {
 describe("activity tracking", () => {
   it("refreshes lastSeenAt so an active session is not swept", async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-1", appId: "key-a", organizationId: "org-1", scope: "mcp",
+      subject: "user-1", apiKeyId: "key-a", organizationId: "org-1", scope: "mcp",
     });
     sessions.get(SID)!.lastSeenAt = 0;
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
@@ -222,7 +228,7 @@ describe("activity tracking", () => {
 describe("session creation is reserved for initialize", () => {
   beforeEach(() => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-1", appId: "key-a", organizationId: "org-1", scope: "mcp",
+      subject: "user-1", apiKeyId: "key-a", organizationId: "org-1", scope: "mcp",
     });
   });
 
@@ -274,7 +280,7 @@ describe("cross-shape principals cannot take over a session", () => {
   it("rejects a bearer token against a legacy app-owned session", async () => {
     sessions.get(SID)!.owner = "app:key-a";
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "key-a", appId: "key-a", organizationId: "org-1", scope: "mcp",
+      subject: "key-a", apiKeyId: "key-a", organizationId: "org-1", scope: "mcp",
     });
     const res = makeRes();
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
@@ -349,7 +355,7 @@ describe("credential expiry", () => {
   it("takes the new expiry from each authenticated request", async () => {
     const exp = Date.now() + 3_600_000;
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-1", appId: "k", organizationId: "org-1", scope: "mcp", expiresAt: exp,
+      subject: "user-1", apiKeyId: "k", organizationId: "org-1", scope: "mcp", expiresAt: exp,
     });
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
 
@@ -367,7 +373,7 @@ describe("credential expiry", () => {
 describe("bearer sessions", () => {
   it("are not marked deprecated", async () => {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      subject: "user-1", appId: "k", organizationId: "org-1", scope: "mcp",
+      subject: "user-1", apiKeyId: "k", organizationId: "org-1", scope: "mcp",
     });
     const res = makeRes();
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
@@ -376,6 +382,43 @@ describe("bearer sessions", () => {
 });
 
 // Nothing recorded who was refused, who opened or lost a session, or which
+// og_app_id is the key's id; og-api only takes the key itself as app_id.
+describe("bearer app key", () => {
+  beforeEach(() => {
+    vi.mocked(verifyAccessToken).mockResolvedValue({
+      subject: "user-1", apiKeyId: "key-id", organizationId: "org-1", scope: "mcp",
+    });
+  });
+
+  it("binds the resolved key to the session, not the token's key id", async () => {
+    await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
+
+    expect(resolveAppKey).toHaveBeenLastCalledWith("t", "key-id", "org-1");
+    expect(getAuthContext(SID)?.appId).toBe("key-for-key-id");
+    expect(handled).toBe(1);
+  });
+
+  it("answers 401 when the account API refuses the key", async () => {
+    vi.mocked(resolveAppKey).mockRejectedValueOnce(new AppKeyRejectedError(404));
+    const res = makeRes();
+    await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any);
+
+    expect(res.statusCode).toBe(401);
+    expect(handled).toBe(0);
+  });
+
+  it("lets an outage through as an error rather than a 401", async () => {
+    vi.mocked(resolveAppKey).mockRejectedValueOnce(Object.assign(new Error("down"), { status: 503 }));
+    const res = makeRes();
+
+    await expect(handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), res as any))
+      .rejects.toMatchObject({ status: 503 });
+    expect(res.statusCode).toBe(null);
+    expect(handled).toBe(0);
+  });
+});
+
+// #44: nothing recorded who was refused, who opened or lost a session, or which
 // tools ran. Each event is one JSON line on stderr, with no key or token in it.
 describe("security events", () => {
   function events(spy: any): any[] {
@@ -402,7 +445,7 @@ describe("security events", () => {
 
   it("records an attempt on someone else's session", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(verifyAccessToken).mockResolvedValue({ subject: "intruder", appId: "k", organizationId: "o", scope: "mcp" });
+    vi.mocked(verifyAccessToken).mockResolvedValue({ subject: "intruder", apiKeyId: "k", organizationId: "o", scope: "mcp" });
     await handlePost(makeReq({ "mcp-session-id": SID, authorization: "Bearer t" }), makeRes() as any);
     expect(events(spy).find((x) => x.event === "session.forbidden")).toMatchObject({ principal: "sub:intruder", session: SID.slice(0, 8) });
     spy.mockRestore();

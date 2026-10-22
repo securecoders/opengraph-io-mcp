@@ -5,6 +5,7 @@
 process.env.OG_BASE_URL = "https://unmocked.invalid";
 process.env.SITE_AUDIT_API_URL = "https://unmocked.invalid";
 process.env.OG_IMAGE_AGENT_URL = "https://unmocked.invalid";
+process.env.APIFUR_API_URL = "https://unmocked.invalid";
 delete process.env.APP_ID;
 delete process.env.OPENGRAPH_APP_ID;
 
