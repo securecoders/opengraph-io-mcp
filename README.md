@@ -55,6 +55,10 @@ The client discovers the authorization server from there and opens `https://dash
 
 Every setup below connects to the hosted server with OAuth. The first time a tool is used, your browser opens to sign in.
 
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=opengraph&config=eyJ1cmwiOiJodHRwczovL21jcC5vcGVuZ3JhcGguaW8vbWNwIn0%3D)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=opengraph&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.opengraph.io%2Fmcp%22%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=opengraph&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.opengraph.io%2Fmcp%22%7D&quality=insiders)
+
 ### Claude Code
 
 ```bash
