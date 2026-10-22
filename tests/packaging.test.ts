@@ -12,6 +12,8 @@ const readJson = (name: string) =>
 const pkg = readJson("package.json");
 const serverJson = readJson("server.json");
 const manifest = readJson("extension/manifest.json");
+const cursorPlugin = readJson(".cursor-plugin/plugin.json");
+const cursorMcp = readJson("mcp.json");
 
 // This package publishes to npm and is bundled into a .mcpb extension, so a
 // build-only dependency listed under `dependencies` ships to every user twice:
@@ -88,5 +90,24 @@ describe("extension manifest", () => {
   it("advertises exactly the tools a local server offers", () => {
     const advertised = manifest.tools.map((t: { name: string }) => t.name).sort();
     expect(advertised).toEqual(localToolDefinitions.map((t) => t.name).sort());
+  });
+});
+
+// The Cursor Marketplace reads the plugin straight from this repository.
+describe("Cursor plugin", () => {
+  it("has a kebab-case name and the package version", () => {
+    expect(cursorPlugin.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    expect(cursorPlugin.version).toBe(pkg.version);
+  });
+
+  it("connects to the hosted server the registry advertises", () => {
+    const servers = Object.values(cursorMcp.mcpServers) as Array<{ url?: string }>;
+    expect(servers).toHaveLength(1);
+    expect(servers[0].url).toBe(serverJson.remotes[0].url);
+  });
+
+  it("ships its logo at a relative path", () => {
+    expect(cursorPlugin.logo).toMatch(/^[^/.][^:]*$/);
+    expect(() => readFileSync(resolve(process.cwd(), cursorPlugin.logo))).not.toThrow();
   });
 });
