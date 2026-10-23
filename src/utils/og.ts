@@ -94,7 +94,7 @@ export interface ScreenshotOptions extends CommonOgOptions {
     exclude_selectors?: string;
     /** Whether to hide matched selectors. */
     hideSelectors?: boolean;
-    /** Delay in ms before capturing (the API reads this as `captureDelay`). */
+    /** Delay in ms before capturing. */
     capture_delay?: number;
     /** Navigation timeout in ms (1000–60000). */
     navigationTimeout?: number;
@@ -200,16 +200,13 @@ export function buildQueryParams(options: Record<string, any>, appId: string): s
     for (const [key, value] of Object.entries(options)) {
         if (value === undefined || value === null) continue;
 
-        // Rename capture_delay → captureDelay (the API reads captureDelay)
-        const paramKey = key === 'capture_delay' ? 'captureDelay' : key;
-
         // Array params: comma-join (include_tags, exclude_tags)
         if (Array.isArray(value)) {
             if (value.length > 0) {
-                params.set(paramKey, value.join(','));
+                params.set(key, value.join(','));
             }
         } else {
-            params.set(paramKey, String(value));
+            params.set(key, String(value));
         }
     }
 

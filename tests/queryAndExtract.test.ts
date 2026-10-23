@@ -59,3 +59,16 @@ describe("getOgExtract selectors", () => {
     expect(seen[0].url).not.toMatch(/selectors=/);
   });
 });
+
+describe("getOgScreenshot capture_delay", () => {
+  // og-api reads capture_delay; the MCP used to rename it to captureDelay, so the
+  // delay was silently ignored.
+  it("sends capture_delay under the name og-api reads", async () => {
+    stub({ url: "https://example.test/", screenshotUrl: "https://img.test/a.jpg" });
+    await run(ToolNames.GET_OG_SCREENSHOT, { url: "https://example.test/", capture_delay: 1500 });
+
+    const query = new URLSearchParams(seen[0].url.split("?")[1]);
+    expect(query.get("capture_delay")).toBe("1500");
+    expect(query.get("captureDelay")).toBeNull();
+  });
+});
