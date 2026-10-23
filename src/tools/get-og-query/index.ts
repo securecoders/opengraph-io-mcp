@@ -17,7 +17,8 @@ class GetOgQueryTool extends BaseTool {
     name = ToolNames.GET_OG_QUERY;
     description =
         "Ask a natural-language question about the content of any URL and receive an AI-generated answer via the OpenGraph.io API. " +
-        "Optionally pass a responseStructure schema to extract structured data.";
+        "Optionally pass a responseStructure schema to extract structured data. " +
+        "Uses 100 API credits per request (200 with the 'mini' model); a cached answer uses 1.";
 
     annotations = {
         title: "Query URL Content",
@@ -37,7 +38,7 @@ class GetOgQueryTool extends BaseTool {
         ),
         // og-api only knows nano and mini; it still maps the old small/large for installed older versions.
         modelSize: z.enum(["nano", "mini"]).optional().describe(
-            "AI model size. 'nano' is fast; 'mini' uses a larger model for harder questions and may use more credits. Defaults to 'nano'.",
+            "AI model size. 'nano' is fast and uses 100 credits; 'mini' uses a larger model for harder questions and uses 200. Defaults to 'nano'.",
         ),
         // Fetch/proxy params
         cache_ok: z.boolean().optional().describe(
