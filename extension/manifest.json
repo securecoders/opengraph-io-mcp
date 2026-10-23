@@ -60,6 +60,10 @@
       "description": "Convert a URL's HTML to clean, readable Markdown"
     },
     {
+      "name": "getBrandIntelligence",
+      "description": "Build a structured brand profile (products, audiences, voice, colors, fonts) from a website"
+    },
+    {
       "name": "generateImage",
       "description": "Generate illustrations, diagrams, icons, social cards, or QR codes with AI"
     },

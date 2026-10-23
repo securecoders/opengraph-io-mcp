@@ -286,6 +286,41 @@ export function formatQuery(url: string, question: string, result: any): FormatR
 }
 
 // ---------------------------------------------------------------------------
+// formatBrandIntelligence
+// ---------------------------------------------------------------------------
+
+// The profile is shown as JSON, not re-rendered: its shape is the API's
+// contract for model context, and a second renderer here would drift from it.
+// Inline logos run 0.2 to 18KB on real sites; the API allows 64KB, which is
+// too much markup to put in an agent's context unasked.
+const MAX_CONTEXT_LOGO_SVG = 24 * 1024;
+
+function withContextSizedLogo(profile: Record<string, any>): Record<string, any> {
+    const logoSvg = profile?.identity?.logo_svg;
+    if (typeof logoSvg?.svg !== 'string' || logoSvg.svg.length <= MAX_CONTEXT_LOGO_SVG) return profile;
+    const summary = `[inline SVG logo omitted: ${logoSvg.svg.length} bytes; call the API directly for the markup]`;
+    return { ...profile, identity: { ...profile.identity, logo_svg: { ...logoSvg, svg: summary } } };
+}
+
+export function formatBrandIntelligence(url: string, rawProfile: Record<string, any>): FormatResult {
+    const profile = withContextSizedLogo(rawProfile);
+    const name = profile?.brand?.name || domainFromUrl(url);
+    const markdown = [
+        `## Brand Intelligence`,
+        `**${name}**${profile?.is_cache ? ' (cached analysis)' : ''}`,
+        '',
+        '```json',
+        JSON.stringify(profile, null, 2),
+        '```',
+    ].join('\n');
+
+    return {
+        markdown,
+        structured: { url, profile },
+    };
+}
+
+// ---------------------------------------------------------------------------
 // formatExtract
 // ---------------------------------------------------------------------------
 

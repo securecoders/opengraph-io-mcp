@@ -94,6 +94,14 @@ getOgQuery
   Use responseStructure to extract typed structured data. Costs 100–200 credits per call —
   use only when the other tools cannot answer the question directly.
 
+getBrandIntelligence
+  Build a structured profile of a brand from its own website: who it is, what it sells, who it
+  is for, positioning, messaging, voice, and visual identity (logos, colors, fonts). Pass up to 3
+  custom questions for anything else. Costs 500 credits for a fresh analysis (1 when cached, but
+  only for the same url and sections). Fetch the full profile once and reuse it rather than calling
+  again per section. Use it for a whole brand, not for facts on a single page. Takes only cache_ok
+  of the fetch parameters below.
+
 FETCH PARAMETERS (available on most data tools):
   auto_render     — default on: detects JS-heavy pages and re-fetches with browser rendering
   full_render     — forces browser rendering on every request; use when auto_render is insufficient
