@@ -60,6 +60,22 @@ describe("getOgExtract selectors", () => {
   });
 });
 
+// Clients that check structuredContent reject keys the output schema does not list
+// (additionalProperties: false). formatExtract always sends tags, which the schema left out.
+describe("getOgExtract structured output", () => {
+  it("matches the declared output schema exactly", async () => {
+    stub({
+      url: "https://example.test/",
+      concatenatedText: "Turn any URL into useful data",
+      data: { headline: "Turn any URL into useful data" },
+    });
+    const tool = resolveTool(ToolNames.GET_OG_EXTRACT, CTX);
+    const res = await run(ToolNames.GET_OG_EXTRACT, { url: "https://example.test/", selectors: { headline: "h1" } });
+    expect(res.isError).toBeFalsy();
+    expect(() => (tool.outputSchema as any).strict().parse(res.structuredContent)).not.toThrow();
+  });
+});
+
 describe("getOgScreenshot capture_delay", () => {
   // og-api reads capture_delay; the MCP used to rename it to captureDelay, so the
   // delay was silently ignored.
