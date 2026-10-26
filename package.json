@@ -1,7 +1,7 @@
 {
   "name": "opengraph-io-mcp",
   "mcpName": "io.github.securecoders/opengraph-io-mcp",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "main": "dist/server-stdio.js",
   "bin": {
     "opengraph-io-mcp": "dist/server-stdio.js",

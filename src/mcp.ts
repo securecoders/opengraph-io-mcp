@@ -200,7 +200,7 @@ const LOCAL_NOTE =
 
 // Kept equal to package.json by tests/packaging.test.ts (rootDir keeps package.json out of reach).
 export const SERVER_NAME = "opengraph-io-mcp";
-export const SERVER_VERSION = "3.2.1";
+export const SERVER_VERSION = "3.3.0";
 
 export const createServer = ({ local = false }: ServerOptions = {}) => {
     const mcpServer = new McpServer(
