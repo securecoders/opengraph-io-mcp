@@ -394,6 +394,29 @@ Running locally gives you the data and image generation tools. Open Graph Audit 
 | `OPENGRAPH_APP_ID` (or `APP_ID`) | Your OpenGraph.io App ID. `--app-id` on the command line does the same. |
 | `MCP_EXPORT_DIR` | Folder exported images are saved into (default `~/Downloads/opengraph-mcp`). |
 
+## MCP Registry & Distribution
+
+This server is published to the [Official MCP Registry](https://registry.modelcontextprotocol.io) and automatically discovered by other MCP directories.
+
+### Registry Status
+
+| Registry | Auto-Updates | Notes |
+|----------|-------------|-------|
+| **[Official MCP Registry](https://registry.modelcontextprotocol.io)** | ✅ On release | Source of truth, published via GitHub Actions |
+| **[PulseMCP](https://pulsemcp.com)** | ✅ Daily | Ingests from Official Registry |
+| **[Smithery](https://smithery.ai)** | ✅ Likely | Crawls npm automatically |
+| **[Glama](https://glama.ai)** | ✅ Likely | Aggregates from multiple sources |
+| **[MCP.so](https://mcp.so)** | ❌ Manual | One-time submission |
+
+### How Updates Propagate
+
+When a new version is released:
+1. `npm publish` pushes to npm registry
+2. GitHub Actions workflow publishes to Official MCP Registry
+3. Other directories (PulseMCP, Smithery, Glama) auto-discover within hours/days
+
+No manual intervention needed for most directories after initial listing.
+
 ## Troubleshooting
 
 - **Tools don't show up:** restart your client after changing its config, and check that the App ID is set. With the hosted server, finish the browser sign in when prompted.
