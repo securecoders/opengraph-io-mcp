@@ -62,7 +62,7 @@ describe("tool listing", () => {
 });
 
 describe("credential guard by tool family", () => {
-  // The six OG data tools refuse to run without an app id on a real session.
+  // The OG data tools refuse to run without an app id on a real session.
   const DATA_TOOLS: Array<[string, Record<string, unknown>]> = [
     [ToolNames.GET_OG_DATA, { url: "https://example.test" }],
     [ToolNames.GET_OG_SCRAPE_DATA, { url: "https://example.test" }],
@@ -70,6 +70,7 @@ describe("credential guard by tool family", () => {
     [ToolNames.GET_OG_QUERY, { url: "https://example.test", query: "what" }],
     [ToolNames.GET_OG_EXTRACT, { url: "https://example.test", html_elements: ["h1"] }],
     [ToolNames.GET_OG_MARKDOWN, { url: "https://example.test" }],
+    [ToolNames.GET_BRAND_INTELLIGENCE, { url: "https://example.test" }],
   ];
 
   DATA_TOOLS.forEach(([name, args]) => {
@@ -172,7 +173,7 @@ describe("tools a local server offers", () => {
         ToolNames.EXPORT_IMAGE_ASSET, ToolNames.GENERATE_IMAGE, ToolNames.GET_OG_DATA,
         ToolNames.GET_OG_EXTRACT, ToolNames.GET_OG_MARKDOWN, ToolNames.GET_OG_QUERY,
         ToolNames.GET_OG_SCRAPE_DATA, ToolNames.GET_OG_SCREENSHOT, ToolNames.INSPECT_IMAGE_SESSION,
-        ToolNames.ITERATE_IMAGE,
+        ToolNames.ITERATE_IMAGE, ToolNames.GET_BRAND_INTELLIGENCE,
       ].sort());
     } finally {
       await cleanup().catch(() => {});

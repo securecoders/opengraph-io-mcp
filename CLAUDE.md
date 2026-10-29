@@ -1,7 +1,7 @@
 # opengraph-io-mcp
 
 MCP server that exposes the OpenGraph.io API (OG metadata, scrape, screenshot, query, extract, Markdown,
-image generation, Open Graph Audit, link preview) to AI clients such as Claude and Cursor. Users run it
+Brand Intelligence, image generation, Open Graph Audit, link preview) to AI clients such as Claude and Cursor. Users run it
 locally over stdio with their App ID, or connect to the hosted server with OAuth.
 
 ## Stack

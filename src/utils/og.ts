@@ -37,6 +37,9 @@ export const API_VERSIONS = {
     markdown:   '3.0',
     query:      '3.0',
     extract:    '3.0',
+    // og-api registers brand only under 1.1: 3.0's smart defaults would put
+    // every internal page fetch on the retry ladder and blow its time budget.
+    brand:      '1.1',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -91,7 +94,7 @@ export interface ScreenshotOptions extends CommonOgOptions {
     exclude_selectors?: string;
     /** Whether to hide matched selectors. */
     hideSelectors?: boolean;
-    /** Delay in ms before capturing (the API reads this as `captureDelay`). */
+    /** Delay in ms before capturing. */
     capture_delay?: number;
     /** Navigation timeout in ms (1000–60000). */
     navigationTimeout?: number;
@@ -144,6 +147,28 @@ export interface MarkdownOptions extends CommonOgOptions {
     load_more_scroll?: boolean;
 }
 
+export const BRAND_SECTIONS = [
+    'brand', 'identity', 'products', 'audiences', 'positioning',
+    'messaging', 'voice', 'visual', 'links',
+] as const;
+
+export type BrandSection = typeof BRAND_SECTIONS[number];
+
+export const BRAND_QUESTION_TYPES = ['string', 'boolean', 'number', 'string[]', 'object'] as const;
+
+export interface BrandQuestion {
+    key: string;
+    question: string;
+    type?: typeof BRAND_QUESTION_TYPES[number];
+}
+
+export interface BrandOptions {
+    sections?: Partial<Record<BrandSection, boolean>>;
+    questions?: BrandQuestion[];
+    include_meta?: boolean;
+    cache_ok?: boolean;
+}
+
 /** The v3 markdown JSON envelope. Every section but `usage` is conditional. */
 export interface MarkdownResult {
     markdown?:  string;
@@ -175,16 +200,13 @@ export function buildQueryParams(options: Record<string, any>, appId: string): s
     for (const [key, value] of Object.entries(options)) {
         if (value === undefined || value === null) continue;
 
-        // Rename capture_delay → captureDelay (the API reads captureDelay)
-        const paramKey = key === 'capture_delay' ? 'captureDelay' : key;
-
         // Array params: comma-join (include_tags, exclude_tags)
         if (Array.isArray(value)) {
             if (value.length > 0) {
-                params.set(paramKey, value.join(','));
+                params.set(key, value.join(','));
             }
         } else {
-            params.set(paramKey, String(value));
+            params.set(key, String(value));
         }
     }
 
@@ -404,4 +426,30 @@ export const getSiteMarkdown = async (
         // that to the model as prose would disguise a transport failure.
         throw new Error("Markdown API returned a malformed JSON envelope.");
     }
+};
+
+/** Build a structured brand profile for a site via /api/1.1/brand (POST). */
+export const getBrandIntelligence = async (
+    url: string,
+    app_id?: string,
+    options: BrandOptions = {},
+): Promise<Record<string, any>> => {
+    const actualAppId = getAppId(app_id);
+    if (!actualAppId) {
+        throw new Error("OpenGraph app_id is required. Provide it as an argument or set OPENGRAPH_APP_ID environment variable.");
+    }
+    const { cache_ok, ...body } = options;
+    // format is not forwarded: JSON is the profile, and markdown would leave
+    // structuredContent empty.
+    const qs = buildQueryParams({ cache_ok }, actualAppId);
+    const response = await ogFetch(
+        `${getBaseUrl()}/api/${API_VERSIONS.brand}/brand/${encodeURIComponent(url)}?${qs}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Referrer": "mcp" },
+            body: JSON.stringify(body),
+        },
+    );
+    if (!response.ok) await throwFailed("Brand Intelligence API", response);
+    return readJson<Record<string, any>>(SERVICE, response);
 };

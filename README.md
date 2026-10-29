@@ -168,7 +168,7 @@ Only for setups that cannot use OAuth yet, while the hosted server still accepts
 
 ### OpenGraph.io Data Tools
 
-All scraping/metadata tools default to the **v3** API which enables `auto_render`, `auto_proxy`, and `retry` by default for higher success rates on complex pages. The `query` and `extract` tools use v1.1 (see notes).
+All scraping/metadata tools default to the **v3** API which enables `auto_render`, `auto_proxy`, and `retry` by default for higher success rates on complex pages. The `query`, `extract` and brand intelligence tools use v1.1 (see notes).
 
 | Tool Name | API Endpoint | Description | Documentation |
 |-----------|--------------|-------------|---------------|
@@ -178,6 +178,7 @@ All scraping/metadata tools default to the **v3** API which enables `auto_render
 | **Get OG Query** | `/api/1.1/query/<URL>` | Ask a natural-language question about a page's content. Uses v1.1 (100–200 credits/request) until billing path is updated for v3. | [Docs](https://www.opengraph.io/documentation#query-site) |
 | **Get OG Extract** | `/api/1.1/extract/<URL>` | Extract specific HTML elements (h1, p, a, img, etc.) by tag name. Stays on v1.1 — no v3 GET route exists for this endpoint. | [Docs](https://www.opengraph.io/documentation#extract-site) |
 | **Get OG Markdown** | `/api/3.0/markdown/<URL>` | Convert any URL's HTML to clean Markdown. Strips nav/ads by default (`only_main_content: true`) and supports `include_tags`/`exclude_tags` selectors. For long pages, pass `query` with `chunking` to get back only the relevant passages, ranked, rather than the whole document. `include_links`/`include_images`/`include_headings` return structured link, image, and outline data. Returns page metadata, character and token usage, and — with `ai_sanitize` — a prompt-injection safety report. | [Docs](https://www.opengraph.io/documentation) |
+| **Get Brand Intelligence** | `/api/1.1/brand/<URL>` | Build a structured brand profile from about ten of a site's own pages: brand, identity (logos, icon, colors, fonts), products, audiences, positioning, messaging, voice, visual style, and links. Turn sections off with `sections`, ask up to 3 typed custom `questions`, and add per-field provenance with `include_meta`. Stays on v1.1, because v3's retry defaults would exceed its time budget. 500 credits per fresh analysis, 1 when cached. | [Docs](https://www.opengraph.io/documentation) |
 
 **Language detection:** All tools send `accept_lang: auto` by default, which mirrors the request's `Accept-Language` header. Pass an explicit BCP 47 tag (e.g. `en-US`, `fr`) to override.
 

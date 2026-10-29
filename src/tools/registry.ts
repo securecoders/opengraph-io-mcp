@@ -8,6 +8,7 @@ import GetOgScreenshotTool from "@/tools/get-og-screenshot";
 import GetOgQueryTool from "@/tools/get-og-query";
 import GetOgExtractTool from "@/tools/get-og-extract";
 import GetOgMarkdownTool from "@/tools/get-og-markdown";
+import GetBrandIntelligenceTool from "@/tools/get-brand-intelligence";
 import GenerateImageTool from "@/tools/generate-image";
 import IterateImageTool from "@/tools/iterate-image";
 import InspectImageSessionTool from "@/tools/inspect-image-session";
@@ -63,6 +64,7 @@ const REGISTRY: Record<ToolNames, ToolRegistration> = {
   [ToolNames.GET_OG_QUERY]:       { create: (c) => new GetOgQueryTool(c.appId),       requiresAppId: true },
   [ToolNames.GET_OG_EXTRACT]:     { create: (c) => new GetOgExtractTool(c.appId),     requiresAppId: true },
   [ToolNames.GET_OG_MARKDOWN]:    { create: (c) => new GetOgMarkdownTool(c.appId),    requiresAppId: true },
+  [ToolNames.GET_BRAND_INTELLIGENCE]: { create: (c) => new GetBrandIntelligenceTool(c.appId), requiresAppId: true },
 
   [ToolNames.GENERATE_IMAGE]:        { create: (c) => new GenerateImageTool(c.appId),                 requiresAppId: true },
   [ToolNames.ITERATE_IMAGE]:         { create: (c) => new IterateImageTool(c.appId),                  requiresAppId: true },

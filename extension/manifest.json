@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "opengraph-io-mcp",
   "display_name": "OpenGraph.io",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "Fetch Open Graph and social metadata, scrape or extract page content, capture screenshots, convert pages to Markdown, ask questions about a page, and generate images with OpenGraph.io.",
   "author": {
     "name": "SecureCoders",
@@ -58,6 +58,10 @@
     {
       "name": "getOgMarkdown",
       "description": "Convert a URL's HTML to clean, readable Markdown"
+    },
+    {
+      "name": "getBrandIntelligence",
+      "description": "Build a structured brand profile (products, audiences, voice, colors, fonts) from a website"
     },
     {
       "name": "generateImage",

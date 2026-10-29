@@ -130,6 +130,11 @@ class GetOgExtractTool extends BaseTool {
     outputSchema = z.object({
         provenance: provenanceSchema,
         url:              z.string(),
+        tags:             z.array(z.object({
+            tag:       z.string(),
+            innerText: z.string(),
+            position:  z.number().optional(),
+        })).optional().describe("Matched elements by tag name. Empty when the selectors param was used."),
         concatenatedText: z.string().optional().describe(
             "All matched element text joined into one string. Present in both html_elements and selectors modes.",
         ),
