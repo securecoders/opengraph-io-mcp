@@ -18,7 +18,7 @@ class InspectImageSessionTool extends BaseTool {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
     };
     description = `Retrieve detailed information about an image generation session and all its assets.
 

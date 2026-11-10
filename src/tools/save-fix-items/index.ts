@@ -25,7 +25,7 @@ class SaveFixItemsTool extends BaseTool {
         // Overwrites hand-authored entries for the same page and field.
         destructiveHint: true,
         idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
     };
 
     inputSchema = z.object({

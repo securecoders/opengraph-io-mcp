@@ -18,7 +18,7 @@ class ListFixItemsTool extends BaseTool {
 
     annotations = {
         title: "List Fix Items",
-        readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true,
+        readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
     };
 
     inputSchema = z.object({ auditId: z.string().describe("Audit ID.") });

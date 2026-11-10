@@ -300,9 +300,22 @@ export const getSiteOgData = async (
         hybridGraph:  data.hybridGraph,
         openGraph:    data.openGraph,
         htmlInferred: data.htmlInferred,
-        requestInfo:  data.requestInfo,
+        requestInfo:  pickRequestInfo(data.requestInfo),
     };
 };
+
+// og-api merges its whole options object into requestInfo, including the
+// caller's organization, plan and usage counters; only page facts go to the model.
+const REQUEST_INFO_FIELDS = ["is_cache", "responseCode", "redirects", "host", "responseContentType", "responseLength"] as const;
+
+export function pickRequestInfo(info: unknown): Record<string, unknown> | undefined {
+    if (!info || typeof info !== "object") return undefined;
+    const picked: Record<string, unknown> = {};
+    for (const key of REQUEST_INFO_FIELDS) {
+        if (key in info) picked[key] = (info as Record<string, unknown>)[key];
+    }
+    return picked;
+}
 
 /** Ask a natural-language question about page content via /api/1.1/query. */
 export const querySite = async (

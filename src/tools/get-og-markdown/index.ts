@@ -190,7 +190,6 @@ class GetOgMarkdownTool extends BaseTool {
         images:          z.any().optional(),
         ai_safety:       z.any().optional().describe("Prompt-injection report; present when ai_sanitize is true"),
         debug:           z.any().optional().describe("Whether rendering, a proxy, or retries were used"),
-        request_id:      z.string().optional(),
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {

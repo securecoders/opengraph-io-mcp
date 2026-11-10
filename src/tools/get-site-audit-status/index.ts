@@ -30,7 +30,7 @@ class GetSiteAuditStatusTool extends BaseTool {
         readOnlyHint:   true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint:  true,
+        openWorldHint:  false,
     };
 
     inputSchema = z.object({

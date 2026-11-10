@@ -405,7 +405,6 @@ export interface MarkdownPayload {
     images?:    Array<Record<string, any>>;
     ai_safety?: Record<string, any> | null;
     debug?:     Record<string, any>;
-    request_id?: string;
     onlyMainContent?: boolean;
 }
 
@@ -427,7 +426,7 @@ function chunkPreview(chunks: Array<Record<string, any>>): string {
 
 export function formatMarkdown(url: string, payload: MarkdownPayload): FormatResult {
     const { markdown: content, metadata, usage, chunks, headings, links, images,
-            ai_safety, debug, request_id, onlyMainContent } = payload;
+            ai_safety, debug, onlyMainContent } = payload;
     const domain = domainFromUrl(url);
 
     const chars  = usage?.output_character_count ?? usage?.character_count ?? content?.length ?? 0;
@@ -485,7 +484,7 @@ export function formatMarkdown(url: string, payload: MarkdownPayload): FormatRes
             markdown: content ?? '',
             length: Number(chars) || 0,
             onlyMainContent,
-            metadata, usage, chunks, headings, links, images, ai_safety, debug, request_id,
+            metadata, usage, chunks, headings, links, images, ai_safety, debug,
         },
     };
 }

@@ -17,7 +17,7 @@ class DeleteFixItemTool extends BaseTool {
 
     annotations = {
         title: "Delete Fix Item",
-        readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true,
+        readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false,
     };
 
     inputSchema = z.object({

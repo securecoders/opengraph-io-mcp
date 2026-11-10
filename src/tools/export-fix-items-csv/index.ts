@@ -18,7 +18,7 @@ class ExportFixItemsCsvTool extends BaseTool {
 
     annotations = {
         title: "Export Fix List as CSV",
-        readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true,
+        readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
     };
 
     inputSchema = z.object({ auditId: z.string().describe("Audit ID.") });

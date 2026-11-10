@@ -38,7 +38,7 @@ class IterateImageTool extends BaseTool {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
     };
     description = `Refine, modify, or create variations of an existing generated image.
 

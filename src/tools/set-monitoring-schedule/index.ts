@@ -37,7 +37,7 @@ class SetMonitoringScheduleTool extends BaseTool {
         // recurring quota spend — both warrant a client confirmation prompt.
         destructiveHint: true,
         idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
     };
 
     inputSchema = z.object({

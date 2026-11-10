@@ -124,7 +124,7 @@ class GetOgDataTool extends BaseTool {
         hybridGraph:  z.any().describe("Best-of merged metadata from all sources"),
         openGraph:    z.any().describe("Raw Open Graph tag values"),
         htmlInferred: z.any().describe("HTML-inferred fallback values"),
-        requestInfo:  z.any().optional().describe("Request metadata (cache status, version, options echo)"),
+        requestInfo:  z.any().optional().describe("Fetch details: cache status, response code, redirects, host, content type and length"),
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {

@@ -54,7 +54,7 @@ class GenerateImageTool extends BaseTool {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
     };
     description = `Generate professional, brand-consistent images optimized for web and social media.
 
