@@ -143,6 +143,8 @@ build
 # Extension build output
 .mcpb-staging/
 *.mcpb
+.openai-plugin-staging/
+opengraph-io-openai-plugin.zip
 
 # Local editor and agent state
 *.code-workspace

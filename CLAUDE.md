@@ -32,10 +32,23 @@ locally over stdio with their App ID, or connect to the hosted server with OAuth
 
 ## Versions
 
-`package.json`, `server.json`, `extension/manifest.json`, `.cursor-plugin/plugin.json` and
-`SERVER_VERSION` in `src/mcp.ts` carry the same version; `tests/packaging.test.ts` fails if they differ.
+`package.json`, `server.json`, `extension/manifest.json`, `.cursor-plugin/plugin.json`,
+`openai-plugin/plugin.json` and `SERVER_VERSION` in `src/mcp.ts` carry the same version;
+`tests/packaging.test.ts` fails if they differ.
 
 ## Cursor plugin
 
 `.cursor-plugin/plugin.json`, `mcp.json` and `assets/logo.svg` are the Cursor Marketplace plugin. It
 points Cursor at the hosted server, which signs the user in with OAuth.
+
+## ChatGPT plugin
+
+`openai-plugin/` is the package uploaded at platform.openai.com/plugins; `npm run build:openai-plugin`
+zips it with `assets/logo.svg`. It lives apart from the root `mcp.json` because both formats want that
+filename. OpenAI rejects upgrade prompts or checkout links in any tool output or instructions, so quota
+messages link only to `PLAN_QUOTAS_URL` (`tests/planLimitCopy.test.ts`), and `upstreamDetail` drops the
+"please upgrade" sentences other services send. `getOgData` returns only page facts from og-api's
+`requestInfo`, which otherwise carries the caller's plan and usage. `openWorldHint` is true only for tools
+that reach an arbitrary site, false for ones bounded to the caller's account
+(`tests/chatgptPluginRules.test.ts`). The hosted server answers the portal's domain check at
+`/.well-known/openai-apps-challenge` from `OPENAI_APPS_CHALLENGE_TOKEN`.

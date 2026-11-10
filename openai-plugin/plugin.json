@@ -1,0 +1,90 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "opengraph-io",
+  "version": "3.3.0",
+  "description": "Read and inspect public web pages: Open Graph metadata, page content as Markdown, screenshots, brand identity, social images and Open Graph Audits, from OpenGraph.io.",
+  "author": {
+    "name": "OpenGraph.io",
+    "email": "support@opengraph.io",
+    "url": "https://www.opengraph.io"
+  },
+  "homepage": "https://www.opengraph.io",
+  "repository": "https://github.com/securecoders/opengraph-io-mcp",
+  "license": "ISC",
+  "keywords": ["opengraph", "open-graph", "seo", "link-preview", "screenshots", "markdown", "brand"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "OpenGraph.io",
+        "shortDescription": "Page data, screenshots, audits",
+        "longDescription": "OpenGraph.io lets ChatGPT read and inspect public web pages for you. Give it a URL and it can:\n\n• Show how a link will look when shared, from its Open Graph and Twitter Card metadata\n• Turn a page into clean Markdown to summarize or quote\n• Capture a screenshot of a page\n• Answer questions about a page, or pull specific elements out of it\n• Describe a company's brand: logo, colors, fonts and description\n• Audit the social metadata of a single page or a whole site, track scores over time and keep a list of fixes\n• Generate social images such as OG cards, icons and illustrations\n\nSign in with your OpenGraph.io account to connect. Requests count toward the usage already included in that account.",
+        "developerName": "OpenGraph.io",
+        "category": "Developer Tools",
+        "websiteURL": "https://www.opengraph.io",
+        "supportURL": "https://www.opengraph.io/support",
+        "privacyPolicyURL": "https://www.opengraph.io/privacy",
+        "termsOfServiceURL": "https://www.opengraph.io/legal-terms-of-service",
+        "defaultPrompt": [
+          "How will https://github.com look when shared on social media?",
+          "Take a screenshot of https://www.wikipedia.org",
+          "What logo, colors and fonts does stripe.com use?"
+        ],
+        "logo": "./assets/logo.svg",
+        "composerIcon": "./assets/logo.svg"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Link preview metadata for a public URL",
+              "prompt": "What title, description and image does https://github.com show when it is shared on social media?",
+              "tools_triggered": "getOgData",
+              "expected_behavior": "Calls getOgData with https://github.com and reports the page's Open Graph title, description and image URL."
+            },
+            {
+              "description": "Screenshot of a public page",
+              "prompt": "Take a screenshot of https://www.wikipedia.org",
+              "tools_triggered": "getOgScreenshot",
+              "expected_behavior": "Calls getOgScreenshot with the URL and returns a link to the captured screenshot of the Wikipedia homepage."
+            },
+            {
+              "description": "Page content as Markdown",
+              "prompt": "Get the main content of https://ogp.me as Markdown and summarize it in three bullet points.",
+              "tools_triggered": "getOgMarkdown",
+              "expected_behavior": "Calls getOgMarkdown with https://ogp.me, then summarizes the Open Graph protocol page in three bullet points."
+            },
+            {
+              "description": "Brand identity for a company domain",
+              "prompt": "What logo, brand colors and fonts does stripe.com use?",
+              "tools_triggered": "getBrandIntelligence",
+              "expected_behavior": "Calls getBrandIntelligence for stripe.com and reports the logo URL, main brand colors as hex values and font families."
+            },
+            {
+              "description": "Single page social metadata audit",
+              "prompt": "Audit the Open Graph tags on https://www.opengraph.io and tell me what to fix.",
+              "tools_triggered": "previewPageAudit",
+              "expected_behavior": "Calls previewPageAudit with the URL and reports the score, its label and each issue found with a suggested fix."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Creative writing with no web page involved",
+              "prompt": "Write a haiku about autumn leaves."
+            },
+            {
+              "description": "Arithmetic needs no web data",
+              "prompt": "What is 18 percent of 250?"
+            },
+            {
+              "description": "General knowledge question with no URL",
+              "prompt": "Explain the difference between TCP and UDP."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "First release in ChatGPT."
+      }
+    }
+  }
+}
