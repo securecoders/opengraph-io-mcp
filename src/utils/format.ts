@@ -22,6 +22,10 @@ import {
     fieldRow,
 } from "@/utils/style";
 
+// Informational only: ChatGPT's plugin rules reject links to checkout or upgrade pages.
+export const PLAN_QUOTAS_URL = "https://www.opengraph.io/pricing";
+const PLAN_QUOTAS_NOTE = `[Plan quotas](${PLAN_QUOTAS_URL}) are listed on the OpenGraph.io site.`;
+
 // ---------------------------------------------------------------------------
 // CallToolResult builder
 // ---------------------------------------------------------------------------
@@ -579,7 +583,7 @@ export function formatDiscoverResult(result: DiscoverResult): FormatResult {
 
     lines.push('Ask the user which pages to audit, then call **startSiteAudit** with the full URLs (base URL + path).');
     if (remainingQuota != null && remainingQuota < totalFound) {
-        lines.push(`> **Plan limit:** Your quota allows **${remainingQuota}** more pages this period. Select up to that many URLs, or [upgrade your plan](https://dashboard.opengraph.io/organization/billing) to audit more.`);
+        lines.push(`> **Plan limit:** Your quota allows **${remainingQuota}** more pages this period. Select up to that many URLs. ${PLAN_QUOTAS_NOTE}`);
     }
 
     // Normalize URL objects to exactly match the output schema:
@@ -624,7 +628,7 @@ export function formatAuditStarted(
         lines.push(
             `> **Monthly quota reached:** You requested ${clamp.requested} pages but only **${remaining} page${remaining !== 1 ? 's' : ''} remain** in your quota this month. ` +
             `This audit will cover ${clamp.applied} page${clamp.applied !== 1 ? 's' : ''}. ` +
-            `[Upgrade your plan](https://dashboard.opengraph.io/organization/billing) to increase your monthly page quota.`,
+            PLAN_QUOTAS_NOTE,
         );
     }
 
