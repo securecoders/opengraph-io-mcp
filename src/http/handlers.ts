@@ -29,6 +29,17 @@ export function handleProtectedResource(_req: Request, res: Response): void {
   });
 }
 
+// OpenAI's plugin portal proves domain ownership by fetching this token, and
+// rejects anything but the bare token as the body.
+export function handleOpenAiChallenge(_req: Request, res: Response): void {
+  const token = (process.env.OPENAI_APPS_CHALLENGE_TOKEN || "").trim();
+  if (!token) {
+    res.sendStatus(404);
+    return;
+  }
+  res.type("text/plain").send(token);
+}
+
 // ---------------------------------------------------------------------------
 // Session store
 // ---------------------------------------------------------------------------

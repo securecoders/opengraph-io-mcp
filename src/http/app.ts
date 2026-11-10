@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js";
 import {
   handleProtectedResource,
+  handleOpenAiChallenge,
   handlePost,
   handleGet,
   handleDelete,
@@ -143,6 +144,7 @@ export function createApp(): Express {
   // Request handling lives in @/http/handlers so it can be tested without binding
   // a port. RFC 9728 protected-resource metadata is part of that module.
   app.get("/.well-known/oauth-protected-resource", handleProtectedResource);
+  app.get("/.well-known/openai-apps-challenge", handleOpenAiChallenge);
   const checkHost = hostValidation();
   if (checkHost) app.use("/mcp", checkHost);
   app.post("/mcp", sessionCreateLimiter(), handlePost);

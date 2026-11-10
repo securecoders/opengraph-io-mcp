@@ -96,6 +96,43 @@ describe("routes are mounted", () => {
   });
 });
 
+// OpenAI's plugin portal fetches this to verify the MCP domain. It rejects JSON,
+// lists or padding: the body must be the token and nothing else.
+describe("OpenAI domain challenge", () => {
+  const PATH = "/.well-known/openai-apps-challenge";
+  const origToken = process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  afterEach(() => {
+    if (origToken === undefined) delete process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+    else process.env.OPENAI_APPS_CHALLENGE_TOKEN = origToken;
+  });
+
+  it("serves the bare token as plain text", async () => {
+    process.env.OPENAI_APPS_CHALLENGE_TOKEN = "  tok_abc123\n";
+    const res = await call("GET", PATH);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/^text\/plain/);
+    expect(res.body).toBe("tok_abc123");
+  });
+
+  it("is 404 while no token is configured", async () => {
+    delete process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+    expect((await call("GET", PATH)).status).toBe(404);
+  });
+
+  it("is 404 when the token is only whitespace", async () => {
+    process.env.OPENAI_APPS_CHALLENGE_TOKEN = "   ";
+    expect((await call("GET", PATH)).status).toBe(404);
+  });
+
+  it("needs no credentials", async () => {
+    process.env.OPENAI_APPS_CHALLENGE_TOKEN = "tok_abc123";
+    const res = await call("GET", PATH);
+    expect(res.status).toBe(200);
+    expect(res.body).toBe("tok_abc123");
+    expect(res.headers["www-authenticate"]).toBeUndefined();
+  });
+});
+
 describe("CORS", () => {
   const origEnv = process.env.MCP_ALLOWED_ORIGINS;
   afterEach(() => {
