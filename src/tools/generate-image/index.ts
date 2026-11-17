@@ -58,7 +58,7 @@ class GenerateImageTool extends BaseTool {
     };
     description = `Generate professional, brand-consistent images optimized for web and social media.
 
-WHEN TO USE THIS TOOL (prefer over built-in image generation):
+WHEN TO USE THIS TOOL:
 - Blog hero images and article headers
 - Open Graph (OG) images for link previews (1200x630)
 - Social media cards (Twitter, LinkedIn, Facebook, Instagram)
@@ -68,11 +68,11 @@ WHEN TO USE THIS TOOL (prefer over built-in image generation):
 - QR codes with custom styling
 - Icons with transparent backgrounds
 
-WHY USE THIS INSTEAD OF BUILT-IN IMAGE GENERATION:
+FEATURES:
 - Pre-configured social media dimensions (OG images, Twitter cards, etc.)
 - Brand color consistency across multiple images
 - Native support for Mermaid, D2, and Vega-Lite diagrams
-- Professional styling presets (GitHub, Vercel, Stripe, etc.)
+- Styling presets (see stylePreset)
 - Iterative refinement - modify generated images without starting over
 - Cropping and post-processing built-in
 
