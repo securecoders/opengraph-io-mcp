@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { SERVER_NAME, SERVER_VERSION } from "@/mcp";
-import { localToolDefinitions } from "@/tools/registry";
+import { localToolDefinitions, toolDefinitions } from "@/tools/registry";
 
 // package.json has no "type": "module", so under NodeNext a .ts spec is typed as
 // CommonJS and import.meta is a compile error. Vitest runs from the repo root.
@@ -14,6 +14,8 @@ const serverJson = readJson("server.json");
 const manifest = readJson("extension/manifest.json");
 const cursorPlugin = readJson(".cursor-plugin/plugin.json");
 const cursorMcp = readJson("mcp.json");
+const openaiPlugin = readJson("openai-plugin/plugin.json");
+const openaiMcp = readJson("openai-plugin/mcp.json");
 
 // This package publishes to npm and is bundled into a .mcpb extension, so a
 // build-only dependency listed under `dependencies` ships to every user twice:
@@ -58,6 +60,7 @@ describe("version", () => {
 
   it("matches in the extension manifest and the server info", () => {
     expect(manifest.version).toBe(pkg.version);
+    expect(openaiPlugin.version).toBe(pkg.version);
     expect(SERVER_VERSION).toBe(pkg.version);
     expect(SERVER_NAME).toBe(pkg.name);
   });
@@ -109,5 +112,85 @@ describe("Cursor plugin", () => {
   it("ships its logo at a relative path", () => {
     expect(cursorPlugin.logo).toMatch(/^[^/.][^:]*$/);
     expect(() => readFileSync(resolve(process.cwd(), cursorPlugin.logo))).not.toThrow();
+  });
+});
+
+// The OpenAI plugin portal rejects the upload, or the review, on these limits.
+// They come from developers.openai.com/plugins/deploy/submission and the plugin
+// guidelines (checked 2026-11-10).
+describe("OpenAI plugin", () => {
+  const openai = openaiPlugin.extensions["com.openai"];
+  const ui = openai.interface;
+  const servers = Object.values(openaiMcp.mcpServers) as Array<Record<string, any>>;
+
+  it("has a submittable package name", () => {
+    expect(openaiPlugin.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    expect(openaiPlugin.name.length).toBeLessThanOrEqual(64);
+  });
+
+  it("keeps listing text within the portal's limits", () => {
+    expect(ui.displayName.length).toBeLessThanOrEqual(30);
+    expect(ui.shortDescription.length).toBeLessThanOrEqual(30);
+    expect(ui.longDescription.length).toBeLessThanOrEqual(4000);
+    expect(ui.developerName.length).toBeLessThanOrEqual(80);
+    expect(ui.defaultPrompt.length).toBeLessThanOrEqual(3);
+    for (const p of ui.defaultPrompt) expect(p.length).toBeLessThanOrEqual(128);
+  });
+
+  it("does not append MCP or Plugin to the name", () => {
+    expect(ui.displayName).not.toMatch(/\b(mcp|plugin)\b/i);
+  });
+
+  // Guidelines: "Do not advertise pricing, subscriptions, free trials, discounts, or promotions."
+  it("does not mention pricing in the listing", () => {
+    const copy = [ui.shortDescription, ui.longDescription, ...ui.defaultPrompt, openaiPlugin.description].join(" ");
+    expect(copy).not.toMatch(/\b(free|trial|pric\w*|subscri\w*|discount|upgrade|credits?|\$\d)/i);
+  });
+
+  it("links the four pages MCP review requires over HTTPS", () => {
+    for (const key of ["websiteURL", "supportURL", "privacyPolicyURL", "termsOfServiceURL"]) {
+      expect(ui[key]).toMatch(/^https:\/\//);
+      expect(ui[key].length).toBeLessThanOrEqual(1024);
+    }
+  });
+
+  it("ships its logo at a ./ path", () => {
+    expect(ui.logo).toBe("./assets/logo.svg");
+    expect(ui.composerIcon).toBe("./assets/logo.svg");
+    expect(() => readFileSync(resolve(process.cwd(), "assets/logo.svg"))).not.toThrow();
+  });
+
+  it("has exactly 5 positive and 3 negative review cases", () => {
+    expect(openai.review.test_cases.positive).toHaveLength(5);
+    expect(openai.review.test_cases.negative).toHaveLength(3);
+    for (const c of openai.review.test_cases.negative) {
+      expect(c.description && c.prompt).toBeTruthy();
+    }
+  });
+
+  it("names only tools the hosted server lists", () => {
+    const hosted = new Set(toolDefinitions.map((t) => t.name));
+    for (const c of openai.review.test_cases.positive) {
+      expect(c.prompt && c.description && c.expected_behavior).toBeTruthy();
+      for (const name of c.tools_triggered.split(",").map((n: string) => n.trim())) {
+        expect(hosted).toContain(name);
+      }
+    }
+  });
+
+  // Reviewer credentials go in the dashboard; the portal rejects them in the package.
+  it("carries no reviewer credentials", () => {
+    expect(openai.review).not.toHaveProperty("test_credentials");
+    expect(openai.review).not.toHaveProperty("reviewer_instructions");
+  });
+
+  // The portal has no API key flow and rejects nonempty server headers, so the
+  // App ID path can never be the declared auth.
+  it("connects one hosted server over OAuth with no headers", () => {
+    expect(servers).toHaveLength(1);
+    expect(servers[0].type).toBe("streamable-http");
+    expect(servers[0].url).toBe(serverJson.remotes[0].url);
+    expect(servers[0].headers ?? {}).toEqual({});
+    expect(servers[0].extensions["com.openai"].auth).toEqual({ type: "oauth", client: { mode: "dcr" } });
   });
 });

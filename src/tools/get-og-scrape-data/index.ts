@@ -117,7 +117,6 @@ class GetOgScrapeDataTool extends BaseTool {
         url:         z.string(),
         html:        z.string().describe("Full raw HTML of the scraped page"),
         length:      z.number().describe("Character count of the HTML"),
-        requestInfo: z.any().optional().describe("Request metadata (cache status, version, options echo)"),
     });
 
     async execute(args: z.infer<typeof this.inputSchema>): Promise<CallToolResult> {

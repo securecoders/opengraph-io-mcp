@@ -295,14 +295,31 @@ export const getSiteOgData = async (
         openGraph: any;
         htmlInferred: any;
         requestInfo?: any;
+        is_cache?: boolean;
     };
     return {
         hybridGraph:  data.hybridGraph,
         openGraph:    data.openGraph,
         htmlInferred: data.htmlInferred,
-        requestInfo:  data.requestInfo,
+        requestInfo:  pickRequestInfo(data.requestInfo, data.is_cache),
     };
 };
+
+// og-api merges its whole options object into requestInfo, including the
+// caller's organization, plan and usage counters; only page facts go to the model.
+// og-api reports is_cache beside requestInfo, not inside it.
+const REQUEST_INFO_FIELDS = ["responseCode", "redirects", "host", "responseContentType", "responseLength"] as const;
+
+export function pickRequestInfo(info: unknown, isCache?: unknown): Record<string, unknown> | undefined {
+    const picked: Record<string, unknown> = {};
+    if (typeof isCache === "boolean") picked.is_cache = isCache;
+    if (info && typeof info === "object") {
+        for (const key of REQUEST_INFO_FIELDS) {
+            if (key in info) picked[key] = (info as Record<string, unknown>)[key];
+        }
+    }
+    return Object.keys(picked).length ? picked : undefined;
+}
 
 /** Ask a natural-language question about page content via /api/1.1/query. */
 export const querySite = async (

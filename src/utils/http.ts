@@ -117,7 +117,6 @@ export function upstreamDetail(body: unknown, status: number): string | undefine
     if (status >= 500 && INTERNAL_ADDRESS.test(candidate)) return undefined;
 
     const flat = candidate.replace(/\s+/g, " ").trim();
-    if (!flat) return undefined;
     return flat.length > MAX_ERROR_CHARS ? `${flat.slice(0, MAX_ERROR_CHARS)}…` : flat;
 }
 

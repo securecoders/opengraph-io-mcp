@@ -22,6 +22,10 @@ import {
     fieldRow,
 } from "@/utils/style";
 
+// Informational only: ChatGPT's plugin rules reject links to checkout or upgrade pages.
+export const PLAN_QUOTAS_URL = "https://www.opengraph.io/pricing";
+const PLAN_QUOTAS_NOTE = `[Plan quotas](${PLAN_QUOTAS_URL}) are listed on the OpenGraph.io site.`;
+
 // ---------------------------------------------------------------------------
 // CallToolResult builder
 // ---------------------------------------------------------------------------
@@ -178,16 +182,11 @@ export function formatOgData(url: string, data: OgDataPayload): FormatResult {
 // formatScrape
 // ---------------------------------------------------------------------------
 
-export function formatScrape(url: string, html: string, requestInfo?: any): FormatResult {
+export function formatScrape(url: string, html: string): FormatResult {
     const domain   = domainFromUrl(url);
-    const isCached = requestInfo?.is_cache;
     const length   = html.length;
 
-    const meta = metaLine([
-        `${length.toLocaleString()} chars`,
-        'HTML',
-        isCached !== undefined ? freshnessLabel(isCached) : null,
-    ]);
+    const meta = metaLine([`${length.toLocaleString()} chars`, 'HTML']);
 
     const preview = truncate(html, CAP_SCRAPE);
 
@@ -204,7 +203,7 @@ export function formatScrape(url: string, html: string, requestInfo?: any): Form
 
     return {
         markdown,
-        structured: { url, html, length, requestInfo },
+        structured: { url, html, length },
     };
 }
 
@@ -401,7 +400,6 @@ export interface MarkdownPayload {
     images?:    Array<Record<string, any>>;
     ai_safety?: Record<string, any> | null;
     debug?:     Record<string, any>;
-    request_id?: string;
     onlyMainContent?: boolean;
 }
 
@@ -423,7 +421,7 @@ function chunkPreview(chunks: Array<Record<string, any>>): string {
 
 export function formatMarkdown(url: string, payload: MarkdownPayload): FormatResult {
     const { markdown: content, metadata, usage, chunks, headings, links, images,
-            ai_safety, debug, request_id, onlyMainContent } = payload;
+            ai_safety, debug, onlyMainContent } = payload;
     const domain = domainFromUrl(url);
 
     const chars  = usage?.output_character_count ?? usage?.character_count ?? content?.length ?? 0;
@@ -481,7 +479,7 @@ export function formatMarkdown(url: string, payload: MarkdownPayload): FormatRes
             markdown: content ?? '',
             length: Number(chars) || 0,
             onlyMainContent,
-            metadata, usage, chunks, headings, links, images, ai_safety, debug, request_id,
+            metadata, usage, chunks, headings, links, images, ai_safety, debug,
         },
     };
 }
@@ -579,7 +577,7 @@ export function formatDiscoverResult(result: DiscoverResult): FormatResult {
 
     lines.push('Ask the user which pages to audit, then call **startSiteAudit** with the full URLs (base URL + path).');
     if (remainingQuota != null && remainingQuota < totalFound) {
-        lines.push(`> **Plan limit:** Your quota allows **${remainingQuota}** more pages this period. Select up to that many URLs, or [upgrade your plan](https://dashboard.opengraph.io/organization/billing) to audit more.`);
+        lines.push(`> **Plan limit:** Your quota allows **${remainingQuota}** more pages this period. Select up to that many URLs. ${PLAN_QUOTAS_NOTE}`);
     }
 
     // Normalize URL objects to exactly match the output schema:
@@ -624,7 +622,7 @@ export function formatAuditStarted(
         lines.push(
             `> **Monthly quota reached:** You requested ${clamp.requested} pages but only **${remaining} page${remaining !== 1 ? 's' : ''} remain** in your quota this month. ` +
             `This audit will cover ${clamp.applied} page${clamp.applied !== 1 ? 's' : ''}. ` +
-            `[Upgrade your plan](https://dashboard.opengraph.io/organization/billing) to increase your monthly page quota.`,
+            PLAN_QUOTAS_NOTE,
         );
     }
 

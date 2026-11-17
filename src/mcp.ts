@@ -145,7 +145,7 @@ OPEN GRAPH AUDIT TOOLS (require OAuth + a plan that includes Open Graph Audit):
      OUTPUT directly to startSiteAudit — do not re-parse URLs from the markdown display.
   3. For "codebase scan": read route files, construct URLs, call startSiteAudit directly.
   4. The quota is monthly (not per-audit). If the audit is clamped, tell the user how many pages
-     remain in their monthly quota and link them to the billing page to upgrade.
+     remain in their monthly quota.
   Use the "run-site-audit" prompt for step-by-step guidance including the user-selection step.
 
 MONITORING (recurring audits over time):

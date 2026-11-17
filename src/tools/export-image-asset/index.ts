@@ -21,7 +21,7 @@ class ExportImageAssetTool extends BaseTool {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
     };
     description = `Export a generated image asset by session and asset ID.
 

@@ -19,7 +19,7 @@ class DeleteSiteAuditTool extends BaseTool {
 
     annotations = {
         title: "Delete Open Graph Audit",
-        readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true,
+        readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false,
     };
 
     inputSchema = z.object({ auditId: z.string().describe("The audit to delete.") });

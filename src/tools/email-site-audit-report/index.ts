@@ -26,7 +26,7 @@ class EmailSiteAuditReportTool extends BaseTool {
         destructiveHint: true,
         // Each call renders PDFs and dispatches mail — repeats are not free.
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
     };
 
     inputSchema = z.object({ auditId: z.string().describe("The completed audit to send.") });
