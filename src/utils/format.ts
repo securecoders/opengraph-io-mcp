@@ -182,16 +182,11 @@ export function formatOgData(url: string, data: OgDataPayload): FormatResult {
 // formatScrape
 // ---------------------------------------------------------------------------
 
-export function formatScrape(url: string, html: string, requestInfo?: any): FormatResult {
+export function formatScrape(url: string, html: string): FormatResult {
     const domain   = domainFromUrl(url);
-    const isCached = requestInfo?.is_cache;
     const length   = html.length;
 
-    const meta = metaLine([
-        `${length.toLocaleString()} chars`,
-        'HTML',
-        isCached !== undefined ? freshnessLabel(isCached) : null,
-    ]);
+    const meta = metaLine([`${length.toLocaleString()} chars`, 'HTML']);
 
     const preview = truncate(html, CAP_SCRAPE);
 
@@ -208,7 +203,7 @@ export function formatScrape(url: string, html: string, requestInfo?: any): Form
 
     return {
         markdown,
-        structured: { url, html, length, requestInfo },
+        structured: { url, html, length },
     };
 }
 

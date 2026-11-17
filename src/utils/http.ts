@@ -105,19 +105,6 @@ const INTERNAL_DETAIL =
 const INTERNAL_ADDRESS =
     /\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\b|\.(?:internal|local|cluster\.local|svc)\b/i;
 
-// Upstream plan errors say "Please upgrade your plan" for the dashboard; ChatGPT's plugin
-// rules reject upsells, so that sentence is dropped. URLs are ignored when matching.
-const UPSELL_SENTENCE = /\b(upgrade|purchase|buy|top.?up|checkout|subscribe|(add|more) credits)\b/i;
-const URL_OR_HOST = /\S+:\/\/\S+|\b[\w-]+(\.[\w-]+)+(\/\S*)?/g;
-
-function withoutUpsell(message: string): string {
-    return message
-        .split(/(?<=[.!?;…])\s+/)
-        .filter((s) => !UPSELL_SENTENCE.test(s.replace(URL_OR_HOST, "")))
-        .join(" ")
-        .trim();
-}
-
 /** Only a structured message is written for callers; a raw body (HTML error page, proxy text) never is. */
 export function upstreamDetail(body: unknown, status: number): string | undefined {
     const b = body as any;
@@ -129,8 +116,7 @@ export function upstreamDetail(body: unknown, status: number): string | undefine
     if (!candidate || INTERNAL_DETAIL.test(candidate)) return undefined;
     if (status >= 500 && INTERNAL_ADDRESS.test(candidate)) return undefined;
 
-    const flat = withoutUpsell(candidate.replace(/\s+/g, " ").trim());
-    if (!flat) return undefined;
+    const flat = candidate.replace(/\s+/g, " ").trim();
     return flat.length > MAX_ERROR_CHARS ? `${flat.slice(0, MAX_ERROR_CHARS)}…` : flat;
 }
 
