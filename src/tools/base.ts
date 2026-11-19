@@ -32,5 +32,13 @@ abstract class BaseTool {
             ...(this.annotations && { annotations: this.annotations }),
         };
     }
+
+    // The published schema forbids undeclared fields and ChatGPT enforces that, so
+    // anything an upstream adds beyond the schema is dropped here.
+    conformOutput(result: CallToolResult): CallToolResult {
+        if (result.isError || result.structuredContent === undefined) return result;
+        const parsed = this.outputSchema.safeParse(result.structuredContent);
+        return parsed.success ? { ...result, structuredContent: parsed.data } : result;
+    }
 }
 export default BaseTool;

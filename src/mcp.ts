@@ -1052,7 +1052,7 @@ apply only the ones they approve.`,
         const started = Date.now();
         const session = sessionId ? sessionId.slice(0, 8) : "local";
         try {
-            const result = await tool.execute(tool.inputSchema.parse(args ?? {}));
+            const result = tool.conformOutput(await tool.execute(tool.inputSchema.parse(args ?? {})));
             logEvent("tool.call", { tool: name, session, ok: !result.isError, ms: Date.now() - started });
             return result;
         } catch (err) {
